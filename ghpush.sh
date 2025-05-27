@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Implement Daily VPIN strategy with volume-synchronized order-flow imbalance detection and comprehensive testing"
+COMMIT_MESSAGE="Complete Wavelet Energy-Ratio Breakout Strategy (#10) - All 14 tests passing with DWT decomposition and energy concentration detection"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then
