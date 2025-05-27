@@ -44,11 +44,11 @@ Build a library of statistically defensible crypto strategies, each passing a De
 5. **Continuous Validation:** Ongoing monitoring and revalidation of live strategies
 
 ### Goals
-- Develop 12 orthogonal trading edges with proven statistical significance
-- Create a unified framework for systematic strategy development
-- Establish best practices for quantitative trading research
-- Build a community of rigorous quantitative researchers
-- Contribute to academic literature on systematic trading
+- ✅ Develop 12 orthogonal trading edges with proven statistical significance
+- ✅ Create a unified framework for systematic strategy development
+- 🔄 Establish best practices for quantitative trading research
+- 🔄 Build a community of rigorous quantitative researchers
+- 🔄 Contribute to academic literature on systematic trading
 
 ## Research Philosophy
 
@@ -69,7 +69,7 @@ Build a library of statistically defensible crypto strategies, each passing a De
 ## Contact Information
 
 ### Primary Contact
-- **GitHub:** @joelasaucedo
+- **GitHub:** @joel-saucedo
 - **Email:** [Available via GitHub profile]
 - **Research Interests:** Statistical arbitrage, market microstructure, renewable energy finance
 

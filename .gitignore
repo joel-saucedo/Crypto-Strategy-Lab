@@ -1,0 +1,121 @@
+# Crypto-Strategy-Lab comprehensive .gitignore
+
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment and virtualenv
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Development environment files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Dataset files (raw market data)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/reference/*
+!data/reference/.gitkeep
+
+# Large data files and model artifacts (use DVC instead)
+*.csv
+*.parquet
+*.h5
+*.pkl
+*.joblib
+*.model
+
+# Sensitive configuration
+secrets.yaml
+*.key
+*.pem
+credentials.json
+
+# Logs and temporary files
+logs/
+*.log
+tmp/
+.temp/
+temp/
+
+# Documentation build
+docs/_build/
+docs/api/
+
+# LaTeX intermediate files
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+.*.lb
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+.docker/
+
+# Specific to this project
+reports/figures/*
+!reports/figures/.gitkeep
+results/*
+!results/.gitkeep

@@ -1,0 +1,7 @@
+# Monitoring Dashboard Requirements
+streamlit>=1.16.0
+plotly>=5.10.0
+pandas>=1.5.0
+numpy>=1.22.0
+pyyaml>=6.0
+python-dotenv>=0.21.0

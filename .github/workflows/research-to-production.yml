@@ -1,0 +1,101 @@
+name: Research to Production Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: 'Strategy to deploy'
+        required: true
+        type: choice
+        options:
+          - 'all'
+          - 'lag_autocorr'
+          - 'variance_ratio'
+          - 'hurst_exponent'
+          - 'drift_significance'
+          - 'spectral_peaks'
+          - 'permutation_entropy'
+          - 'volatility_clustering'
+          - 'spectral_entropy'
+          - 'vpin'
+          - 'wavelet_energy'
+          - 'pacf_spike'
+          - 'true_range_divergence'
+      mode:
+        description: 'Deployment mode'
+        required: true
+        type: choice
+        options:
+          - 'backtest'
+          - 'paper_trade'
+          - 'live'
+      hyperopt:
+        description: 'Run hyperparameter optimization'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          
+      - name: Run validation
+        run: |
+          python -c "from src.core.validation import validate_strategy; validate_strategy('${{ github.event.inputs.strategy }}')"
+          
+  hyperopt:
+    needs: validate
+    if: ${{ github.event.inputs.hyperopt == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          
+      - name: Run hyperparameter optimization
+        run: |
+          python scripts/run_hyperopt.py --strategy ${{ github.event.inputs.strategy }}
+          
+  deploy:
+    needs: [validate]
+    if: ${{ always() && (needs.validate.result == 'success') && (github.event.inputs.hyperopt != 'true' || needs.hyperopt.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          
+      - name: Deploy strategy
+        run: |
+          if [ "${{ github.event.inputs.mode }}" = "backtest" ]; then
+            python scripts/run_backtest.py --strategy ${{ github.event.inputs.strategy }}
+          elif [ "${{ github.event.inputs.mode }}" = "paper_trade" ]; then
+            python scripts/paper_trade.sh --strategy ${{ github.event.inputs.strategy }}
+          elif [ "${{ github.event.inputs.mode }}" = "live" ]; then
+            python scripts/deploy_live.sh --strategy ${{ github.event.inputs.strategy }}
+          fi
