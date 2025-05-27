@@ -1,0 +1,1 @@
+"""Strategy module: permutation_entropy"""

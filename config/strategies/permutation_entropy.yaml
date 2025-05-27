@@ -1,0 +1,49 @@
+# Permutation Entropy Strategy Configuration
+
+strategy:
+  name: "permutation_entropy"
+  description: "Predictability detection using ordinal pattern entropy analysis"
+  version: "1.0"
+
+# Best parameters (to be updated after hyperoptimization)
+best_params:
+  window_size: 200
+  embedding_dim: 5
+  entropy_threshold_low: 0.15    # Bottom decile threshold
+  entropy_threshold_high: 0.85   # Top decile threshold
+
+# Parameter grid for hyperoptimization
+param_grid:
+  window_size:
+    min: 100
+    max: 400
+    step: 50
+    
+  embedding_dim:
+    values: [3, 4, 5, 6, 7]
+    
+  entropy_threshold_low:
+    min: 0.05
+    max: 0.25
+    step: 0.05
+    
+  entropy_threshold_high:
+    min: 0.75
+    max: 0.95
+    step: 0.05
+
+# Risk parameters
+risk:
+  max_position: 0.05  # 5% max position
+  stop_loss: 0.08     # 8% stop loss
+  take_profit: 0.15   # 15% take profit
+  
+# Signal parameters
+signal:
+  rebalance_freq: "daily"
+  
+# Backtest parameters
+backtest:
+  start_date: "2020-01-01"
+  end_date: "2024-12-31"
+  benchmark: "BTC"

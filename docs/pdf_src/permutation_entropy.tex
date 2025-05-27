@@ -1,0 +1,113 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Permutation Entropy Strategy: Mathematical Foundation}
+\author{Crypto-Strategy-Lab}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Abstract}
+
+The Permutation-Entropy Predictability Index strategy exploits temporary decreases in market entropy to identify periods of increased predictability. By analyzing ordinal patterns in price movements, the strategy detects when market dynamics become more deterministic, providing exploitable trading opportunities.
+
+\section{Mathematical Framework}
+
+\subsection{Core Equation}
+
+The permutation entropy for a time series with embedding dimension $m$ is:
+$$H_m = -\sum_{j=1}^{m!} p_j \ln(p_j)$$
+
+where $p_j$ is the relative frequency of ordinal pattern $j$. The maximum entropy occurs when all patterns are equally likely:
+$$H_{max} = \ln(m!)$$
+
+The predictability index is defined as:
+$$PI = 1 - \frac{H_m}{H_{max}}$$
+
+\subsection{Statistical Hypothesis}
+
+\textbf{Null Hypothesis:} Market returns exhibit maximum entropy (random walk)
+
+\textbf{Alternative Hypothesis:} Periods of low entropy indicate exploitable structure
+
+\section{Edge Derivation}
+
+\subsection{Theoretical Foundation}
+
+Permutation entropy measures the regularity of ordinal patterns in time series data. When market dynamics become more predictable, certain ordinal patterns become more frequent, reducing overall entropy. This creates exploitable structure for systematic trading.
+
+\subsection{Market Microstructure Basis}
+
+During periods of high predictability:
+\begin{itemize}
+\item Information asymmetries create persistent patterns
+\item Algorithmic trading creates temporary momentum
+\item Market maker inventory effects introduce mean reversion
+\item Behavioral biases create exploitable trends
+\end{itemize}
+
+\subsection{Statistical Properties}
+
+For a truly random process, all ordinal patterns should be equally likely, yielding maximum entropy. Deviations from maximum entropy indicate exploitable structure with expected positive returns when properly timed.
+
+\section{Implementation Details}
+
+\subsection{Signal Generation}
+
+\begin{enumerate}
+\item Extract ordinal patterns from return series using embedding dimension $m$
+\item Calculate permutation entropy: $H_m = -\sum p_j \ln(p_j)$
+\item Compute predictability index: $PI = 1 - H_m/H_{max}$
+\item Generate signals when $PI > \text{threshold}$ and crosses percentile boundaries
+\item Apply confidence filtering using historical entropy distribution
+\end{enumerate}
+
+\subsection{Parameter Optimization}
+
+Key parameters include:
+\begin{itemize}
+\item Window size (60-180 days)
+\item Embedding dimension (3-7)
+\item Entropy threshold (20th-40th percentile)
+\item Confidence level (80\%-95\%)
+\end{itemize}
+
+\section{Risk Management}
+
+\subsection{Position Sizing}
+
+[Integration with Kelly framework and risk limits]
+
+\subsection{Stop Loss Logic}
+
+[Mathematical basis for stop loss placement]
+
+\section{Expected Performance}
+
+\subsection{Theoretical Bounds}
+
+[Theoretical Sharpe ratio and DSR bounds]
+
+\subsection{Sensitivity Analysis}
+
+[Parameter sensitivity and regime dependence]
+
+\section{Unit Test Specifications}
+
+\subsection{Synthetic Data Tests}
+
+[Description of synthetic data that should yield positive DSR]
+
+\subsection{Mathematical Consistency}
+
+[Tests that verify implementation matches equations]
+
+\section{References}
+
+[Academic references and prior work]
+
+\end{document}

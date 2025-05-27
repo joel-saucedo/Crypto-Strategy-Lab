@@ -323,3 +323,21 @@ All strategies integrate with the core risk framework:
 **Risk Hooks:** [Insert risk management details]
 
 **Implementation:** `src/strategies/spectral_peaks/`
+
+
+---
+
+## 17. Permutation Entropy
+
+**Equation:**
+```
+[Insert equation here]
+```
+
+**Edge:** [Insert statistical hypothesis]
+
+**Trade Rule:** [Insert trade rule]
+
+**Risk Hooks:** [Insert risk management details]
+
+**Implementation:** `src/strategies/permutation_entropy/`
