@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  research:
+    build:
+      context: .
+      dockerfile: Dockerfile.research
+    volumes:
+      - .:/workspace
+      - ./data:/workspace/data
+      - ./config:/workspace/config
+    environment:
+      - PYTHONPATH=/workspace/src
+      - ENVIRONMENT=research
+    ports:
+      - "8888:8888"  # Jupyter
+      - "6006:6006"  # TensorBoard
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+
+  backtest:
+    build:
+      context: .
+      dockerfile: Dockerfile.research
+    volumes:
+      - .:/workspace
+      - ./data:/workspace/data
+      - ./config:/workspace/config
+    environment:
+      - PYTHONPATH=/workspace/src
+      - ENVIRONMENT=backtest
+    command: python scripts/run_hyperopt.py
+
+  live:
+    build:
+      context: .
+      dockerfile: Dockerfile.live
+    volumes:
+      - ./src:/workspace/src
+      - ./config:/workspace/config
+      - ./data/reference:/workspace/data/reference
+    environment:
+      - PYTHONPATH=/workspace/src
+      - ENVIRONMENT=live
+      - API_KEYS_FILE=/workspace/config/api_keys.yaml
+    restart: unless-stopped
+    command: python src/pipelines/live_monitor.py
+
+  database:
+    image: timescale/timescaledb:latest-pg14
+    environment:
+      - POSTGRES_DB=crypto_lab
+      - POSTGRES_USER=quant
+      - POSTGRES_PASSWORD=research123
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  timescale_data:
+  redis_data:
