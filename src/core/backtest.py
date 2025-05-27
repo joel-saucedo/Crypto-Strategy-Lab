@@ -130,7 +130,7 @@ class BacktestEngine:
             return {}
             
         df = pd.DataFrame(self.equity_curve).set_index('date')
-        returns = df['equity'].pct_change().dropna()
+        returns = df['equity'].pct_change(fill_method=None).dropna()
         
         if len(returns) == 0:
             return {}

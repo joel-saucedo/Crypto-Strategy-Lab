@@ -31,7 +31,7 @@ class FeatureEngine:
         df = prices.copy()
         
         # Basic returns
-        df['returns'] = df['close'].pct_change()
+        df['returns'] = df['close'].pct_change(fill_method=None)
         df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
         
         # Price-based features

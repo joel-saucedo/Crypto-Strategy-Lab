@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Complete PACF Spike Detector Strategy (#11) - All 12 tests passing with AR structure detection and statistical significance testing"
+COMMIT_MESSAGE="Complete True Range Divergence Strategy (#12) - All 12/12 tests passing, finalizing the 12 orthogonal trading edges compendium"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then

@@ -1,0 +1,90 @@
+# True# Cor# Core algorithm parameters
+tr_lookback: 20                    # Lookback period for True Range moving average
+momentum_lookback: 14              # Lookback period for price momentum calculation
+divergence_threshold: 0.05         # Much lower threshold for divergence detection
+min_tr_strength: 0.5              # More lenient minimum TR relative strength
+max_tr_strength: 5.0              # Higher maximum TR relative strengthrithm parameters
+tr_lookback: 20                    # Lookback period for True Range moving average
+momentum_lookback: 14              # Lookback period for price momentum calculation
+divergence_threshold: 0.05         # Minimum divergence strength to trigger signals (reduced)
+min_tr_strength: 0.6              # Minimum TR relative strength for signal validity (reduced)
+max_tr_strength: 4.0              # Maximum TR relative strength (increased) Divergence Mean-Reversion Strategy Configuration
+# Strategy #12 from the 12 orthogonal trading edges compendium
+
+strategy_name: "true_range_divergence"
+description: "Mean-reversion strategy based on divergences between True Range volatility and price momentum"
+
+# Core algorithm parameters
+tr_lookback: 20                    # Lookback period for True Range moving average
+momentum_lookback: 14              # Lookback period for price momentum calculation
+divergence_threshold: 0.15         # Minimum divergence strength to trigger signals (reduced)
+min_tr_strength: 0.8              # Minimum TR relative strength for signal validity (reduced)
+max_tr_strength: 4.0              # Maximum TR relative strength (avoid extreme volatility)
+
+# Signal generation parameters
+entry_delay_days: 1                # Days to wait before entering position
+max_hold_days: 8                   # Maximum holding period for mean-reversion
+signal_decay: 0.85                 # Signal decay factor per period
+max_signal_strength: 1.0           # Maximum absolute signal value
+
+# Volatility regime filtering
+volatility_filter: true            # Enable volatility regime filtering
+vol_lookback: 30                   # Lookback for volatility regime assessment
+vol_percentile_low: 25             # Lower percentile threshold for trading
+vol_percentile_high: 75            # Upper percentile threshold for trading
+
+# Risk management
+min_observations: 50               # Minimum data points required for signal generation
+confidence_level: 0.05            # Statistical confidence level
+
+# Mathematical foundation
+mathematical_principle: "True Range Divergence Mean-Reversion"
+theoretical_basis: |
+  Exploits divergences between volatility (True Range) and price momentum to identify
+  mean-reversion opportunities. When volatility and price trends diverge, it indicates
+  potential exhaustion and reversal.
+
+key_equations:
+  - "True Range: TR = max(H-L, |H-C_prev|, |L-C_prev|)"
+  - "TR Strength: TR_t / MA(TR, n)"
+  - "Price Momentum: Close_t / MA(Close, n)"
+  - "Divergence Detection: when TR trend ≠ Price trend direction"
+
+# Performance targets
+dsr_threshold: 0.95                # Minimum Deflated Sharpe Ratio for deployment
+expected_holding_period: "3-8 days"
+expected_trade_frequency: "2-5 trades per month"
+market_regime_preference: "Mean-reverting and volatile markets"
+
+# Parameter optimization grid (for hyperopt)
+param_grid:
+  tr_lookback:
+    min: 15
+    max: 30
+    step: 5
+  momentum_lookback:
+    min: 10
+    max: 20
+    step: 2
+  divergence_threshold:
+    min: 0.2
+    max: 0.5
+    step: 0.1
+  min_tr_strength:
+    min: 1.0
+    max: 1.5
+    step: 0.1
+  max_tr_strength:
+    min: 2.5
+    max: 4.0
+    step: 0.5
+  signal_decay:
+    values: [0.8, 0.85, 0.9, 0.95]
+
+# Validation requirements
+validation:
+  min_dsr: 0.95
+  min_sharpe: 1.5
+  max_drawdown: 0.15
+  min_trade_count: 50
+  required_regimes: ["trending", "mean_reverting", "volatile"]

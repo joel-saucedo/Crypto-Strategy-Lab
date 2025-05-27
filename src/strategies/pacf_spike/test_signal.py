@@ -106,7 +106,7 @@ class TestPACFSpikeDetectorSignal:
         """Test PACF calculation mathematical properties."""
         # Generate AR(1) process
         data = self.generate_test_data(300, "ar1")
-        returns = data['close'].pct_change().dropna()
+        returns = data['close'].pct_change(fill_method=None).dropna()
         
         # Calculate PACF
         spike_info = self.strategy.detect_pacf_spike(returns)
@@ -130,17 +130,17 @@ class TestPACFSpikeDetectorSignal:
         """Test identification of different AR structures."""
         # AR(1) process
         ar1_data = self.generate_test_data(300, "ar1")
-        ar1_returns = ar1_data['close'].pct_change().dropna()
+        ar1_returns = ar1_data['close'].pct_change(fill_method=None).dropna()
         ar1_spike = self.strategy.detect_pacf_spike(ar1_returns)
         
         # AR(2) process  
         ar2_data = self.generate_test_data(300, "ar2")
-        ar2_returns = ar2_data['close'].pct_change().dropna()
+        ar2_returns = ar2_data['close'].pct_change(fill_method=None).dropna()
         ar2_spike = self.strategy.detect_pacf_spike(ar2_returns)
         
         # MA(1) process (should not show strong PACF spike)
         ma1_data = self.generate_test_data(300, "ma1")
-        ma1_returns = ma1_data['close'].pct_change().dropna()
+        ma1_returns = ma1_data['close'].pct_change(fill_method=None).dropna()
         ma1_spike = self.strategy.detect_pacf_spike(ma1_returns)
         
         # AR processes should show spikes more reliably than MA
@@ -372,7 +372,7 @@ class TestPACFSpikeDetectorSignal:
             signals = self.strategy.generate(data)
             
             # Calculate forward returns (1-day ahead)
-            forward_returns = data['close'].pct_change().shift(-1)
+            forward_returns = data['close'].pct_change(fill_method=None).shift(-1)
             
             # Calculate DSR for non-zero signals
             signal_mask = signals != 0

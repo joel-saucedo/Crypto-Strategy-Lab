@@ -210,7 +210,7 @@ class DataFetcher:
         df = df[ohlc_valid].copy()
         
         # Price anomaly detection (extreme price jumps)
-        df['returns'] = df['close'].pct_change()
+        df['returns'] = df['close'].pct_change(fill_method=None)
         return_threshold = df['returns'].std() * 5  # 5-sigma threshold
         
         extreme_returns = df['returns'].abs() > return_threshold

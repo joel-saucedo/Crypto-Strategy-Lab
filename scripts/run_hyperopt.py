@@ -41,7 +41,7 @@ def main():
     try:
         if Path(args.data_path).exists():
             prices = pd.read_csv(args.data_path, index_col=0, parse_dates=True)
-            returns = prices['close'].pct_change().dropna()
+            returns = prices['close'].pct_change(fill_method=None).dropna()
             print(f"Loaded {len(prices)} price observations")
         else:
             print(f"Data file not found: {args.data_path}")

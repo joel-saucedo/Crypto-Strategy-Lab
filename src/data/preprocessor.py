@@ -159,10 +159,10 @@ class DataPreprocessor:
         df = df.copy()
         
         # Basic returns
-        df['returns'] = df['close'].pct_change()
-        df['returns_1h'] = df['close'].pct_change(1)
-        df['returns_4h'] = df['close'].pct_change(4)
-        df['returns_24h'] = df['close'].pct_change(24)
+        df['returns'] = df['close'].pct_change(fill_method=None)
+        df['returns_1h'] = df['close'].pct_change(1, fill_method=None)
+        df['returns_4h'] = df['close'].pct_change(4, fill_method=None)
+        df['returns_24h'] = df['close'].pct_change(24, fill_method=None)
         
         # Log returns
         df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
@@ -419,7 +419,7 @@ class DataPreprocessor:
         
         for h in horizons:
             # Future returns
-            df[f'target_return_{h}h'] = df['close'].shift(-h).pct_change()
+            df[f'target_return_{h}h'] = df['close'].shift(-h).pct_change(fill_method=None)
             
             # Future volatility
             future_returns = df['returns'].shift(-h).rolling(h).std()
