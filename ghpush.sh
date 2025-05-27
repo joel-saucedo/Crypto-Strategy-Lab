@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Complete Wavelet Energy-Ratio Breakout Strategy (#10) - All 14 tests passing with DWT decomposition and energy concentration detection"
+COMMIT_MESSAGE="Complete PACF Spike Detector Strategy (#11) - All 12 tests passing with AR structure detection and statistical significance testing"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then

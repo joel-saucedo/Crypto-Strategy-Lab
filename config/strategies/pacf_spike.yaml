@@ -1,0 +1,35 @@
+# PACF Spike Detector Strategy Configuration
+# Mathematical foundation: φ_kk = PACF(k), detecting AR(k) structure
+
+strategy_name: "pacf_spike"
+description: "Partial Autocorrelation Spike Detector for AR structure identification"
+
+# Core Parameters
+lookback_days: 180              # Rolling window for PACF calculation
+max_lag: 20                     # Maximum lag to test for PACF spikes
+significance_threshold: 2.0     # Multiple of standard error for spike detection
+min_spike_strength: 0.1         # Minimum |PACF| value to consider
+higher_lag_threshold: 1.0       # Threshold for higher lags to be insignificant
+
+# Trading Rules
+entry_delay_days: 1             # Days to wait after detection before entry
+max_hold_days: 10               # Maximum holding period (k×2 default)
+signal_decay: 0.9               # Signal strength decay factor
+
+# Signal Conditioning
+volatility_filter: true         # Enable volatility regime filtering
+vol_lookback: 30               # Volatility calculation window
+vol_threshold_pct: 95          # Volatility percentile threshold
+
+# Risk Management
+position_sizing: "fixed"        # Position sizing method
+max_signal_strength: 1.0       # Maximum signal strength
+
+# Validation Parameters
+min_observations: 50           # Minimum observations for valid PACF
+confidence_level: 0.05         # Confidence level for significance testing
+
+# Performance Targets
+target_sharpe: 1.0
+target_max_dd: 0.15
+target_win_rate: 0.55
