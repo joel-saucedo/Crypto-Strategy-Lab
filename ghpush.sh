@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Add docker-compose.yml with research/live environments and database setup"
+COMMIT_MESSAGE="Add BLUEPRINT.md with master recipe and validation framework"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then
