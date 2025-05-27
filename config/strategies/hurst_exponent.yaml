@@ -2,7 +2,7 @@
 
 strategy:
   name: "hurst_exponent"
-  description: "Regime detection using DFA-based Hurst exponent estimation"
+  description: "DFA-based Hurst exponent regime detection for persistence/anti-persistence"
   version: "1.0"
 
 # Parameter grid for hyperoptimization
@@ -10,36 +10,36 @@ param_grid:
   lookback_days:
     min: 100
     max: 300
-    step: 20
+    step: 25
     
-  trend_threshold:
-    min: 0.52
+  h_threshold_high:
+    min: 0.53
     max: 0.65
     step: 0.02
     
-  mean_revert_threshold:
+  h_threshold_low:
     min: 0.35
-    max: 0.48
+    max: 0.47
     step: 0.02
     
   min_confidence:
-    min: 0.6
+    min: 0.5
     max: 0.9
-    step: 0.05
+    step: 0.1
 
 # Risk parameters
 risk:
   max_position: 0.05  # 5% max position
-  stop_loss: 0.12     # 12% stop loss (wider for trending)
-  take_profit: 0.25   # 25% take profit
+  stop_loss: 0.15     # 15% stop loss (wider for trending)
+  take_profit: 0.30   # 30% take profit
   
 # Signal parameters
 signal:
-  rebalance_freq: "weekly"  # Less frequent for regime-based strategy
+  rebalance_freq: "weekly"  # Lower frequency for regime changes
   
 # Current best parameters (updated by hyperopt)
 best_params:
   lookback_days: 200
-  trend_threshold: 0.55
-  mean_revert_threshold: 0.45
-  min_confidence: 0.75
+  h_threshold_high: 0.55
+  h_threshold_low: 0.45
+  min_confidence: 0.7
