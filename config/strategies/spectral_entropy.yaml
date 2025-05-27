@@ -1,0 +1,50 @@
+# Spectral-Entropy Collapse Strategy Configuration
+# SBPRF Core Strategy #8: Detects regime changes via entropy collapse
+
+strategy:
+  name: "spectral_entropy"
+  type: "spectral_entropy_collapse"
+  enabled: true
+  
+parameters:
+  # Lookback window for price history analysis
+  lookback: 100
+  
+  # Welch's method parameters for PSD estimation
+  welch_nperseg: 32              # Segment length for Welch's method
+  
+  # Entropy collapse detection thresholds
+  entropy_threshold_pct: 20      # Percentile threshold for collapse detection
+  min_entropy_drop: 0.1          # Minimum entropy drop to consider collapse
+  
+  # Signal processing parameters
+  signal_decay: 0.9              # Signal decay factor for persistence
+  
+  # Volatility regime analysis
+  volatility_lookback: 20        # Lookback for volatility regime detection
+
+# Risk management
+risk:
+  max_position_size: 0.1         # Maximum 10% position size
+  stop_loss_pct: 0.02           # 2% stop loss
+  take_profit_pct: 0.04         # 4% take profit
+  
+# Backtesting parameters
+backtest:
+  start_date: "2020-01-01"
+  end_date: "2023-12-31"
+  initial_capital: 100000
+  commission: 0.001             # 0.1% commission per trade
+  
+# Performance requirements
+performance:
+  min_dsr: 0.95                 # Minimum Daily Sharpe Ratio
+  max_drawdown: 0.05            # Maximum 5% drawdown
+  min_trades_per_month: 5       # Minimum trading frequency
+
+# Mathematical validation
+validation:
+  entropy_bounds_check: true    # Verify entropy ∈ [0,1]
+  psd_normalization_check: true # Verify PSD normalization
+  signal_bounds_check: true    # Verify signals ∈ [-1,1]
+  no_lookahead_check: true     # Verify no future information leakage

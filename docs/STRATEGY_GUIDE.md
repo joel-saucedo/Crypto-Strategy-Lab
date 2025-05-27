@@ -341,3 +341,21 @@ All strategies integrate with the core risk framework:
 **Risk Hooks:** [Insert risk management details]
 
 **Implementation:** `src/strategies/permutation_entropy/`
+
+
+---
+
+## 18. Volatility Clustering
+
+**Equation:**
+```
+[Insert equation here]
+```
+
+**Edge:** [Insert statistical hypothesis]
+
+**Trade Rule:** [Insert trade rule]
+
+**Risk Hooks:** [Insert risk management details]
+
+**Implementation:** `src/strategies/volatility_clustering/`

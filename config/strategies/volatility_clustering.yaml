@@ -1,0 +1,53 @@
+# Volatility Clustering Strategy Configuration
+
+strategy:
+  name: "volatility_clustering"
+  description: "GARCH-based volatility regime detection for adaptive strategy selection"
+  version: "1.0"
+
+# Parameter grid for hyperoptimization
+param_grid:
+  lookback_days:
+    min: 60
+    max: 200
+    step: 20
+    
+  regime_window:
+    min: 15
+    max: 40
+    step: 5
+    
+  calm_percentile:
+    min: 0.15
+    max: 0.35
+    step: 0.05
+    
+  storm_percentile:
+    min: 0.70
+    max: 0.90
+    step: 0.05
+    
+  trend_threshold:
+    min: 0.5
+    max: 2.0
+    step: 0.25
+
+# Risk parameters
+risk:
+  max_position: 0.05  # 5% max position
+  stop_loss: 0.12     # 12% stop loss
+  take_profit: 0.25   # 25% take profit
+  
+# Signal parameters
+signal:
+  rebalance_freq: "daily"
+  regime_update_freq: "daily"
+  min_regime_duration: 3  # Minimum days to maintain regime classification
+  
+# Current best parameters (updated by hyperopt)
+best_params:
+  lookback_days: 120
+  regime_window: 20
+  calm_percentile: 0.20    # Bottom 20% = calm
+  storm_percentile: 0.80   # Top 20% = storm  
+  trend_threshold: 1.0
