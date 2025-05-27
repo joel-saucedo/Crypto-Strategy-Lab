@@ -305,3 +305,21 @@ All strategies integrate with the core risk framework:
 **Risk Hooks:** [Insert risk management details]
 
 **Implementation:** `src/strategies/drift_significance/`
+
+
+---
+
+## 16. Spectral Peaks
+
+**Equation:**
+```
+[Insert equation here]
+```
+
+**Edge:** [Insert statistical hypothesis]
+
+**Trade Rule:** [Insert trade rule]
+
+**Risk Hooks:** [Insert risk management details]
+
+**Implementation:** `src/strategies/spectral_peaks/`

@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Implement Cramér-Rao Drift-Significance Filter strategy with comprehensive testing and mathematical foundation"
+COMMIT_MESSAGE="Implement Power-Spectral Peak Cycle Timer strategy with FFT-based hidden periodicity detection and comprehensive testing"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then

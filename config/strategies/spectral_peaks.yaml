@@ -1,0 +1,51 @@
+# Spectral Peaks Strategy Configuration
+
+strategy:
+  name: "spectral_peaks"
+  description: "Power spectral peak cycle timer for detecting hidden periodicities"
+  version: "1.0"
+
+# Parameter grid for hyperoptimization
+param_grid:
+  window_size:
+    min: 128
+    max: 512
+    step: 64
+    
+  significance_threshold:
+    min: 2.0
+    max: 5.0
+    step: 0.5
+    
+  min_period:
+    min: 5
+    max: 30
+    step: 5
+    
+  max_period:
+    min: 100
+    max: 500
+    step: 50
+    
+  phase_threshold:
+    min: 0.3
+    max: 1.0
+    step: 0.1
+
+# Risk parameters
+risk:
+  max_position: 0.05  # 5% max position
+  stop_loss: 0.15     # 15% stop loss
+  take_profit: 0.30   # 30% take profit
+  
+# Signal parameters
+signal:
+  rebalance_freq: "daily"
+  
+# Best parameters (will be updated by hyperoptimization)
+best_params:
+  window_size: 256      # FFT window size (power of 2)
+  significance_threshold: 3.0  # Peak must be 3x baseline
+  min_period: 10        # Minimum cycle period (days)
+  max_period: 250       # Maximum cycle period (days)
+  phase_threshold: 0.5  # Phase threshold for signal generation

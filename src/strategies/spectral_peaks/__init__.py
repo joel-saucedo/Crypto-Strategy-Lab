@@ -1,0 +1,1 @@
+"""Strategy module: spectral_peaks"""

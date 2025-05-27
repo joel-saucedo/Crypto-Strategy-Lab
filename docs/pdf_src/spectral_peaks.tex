@@ -1,0 +1,170 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Spectral Peaks Strategy: Mathematical Foundation}
+\author{Crypto-Strategy-Lab}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Abstract}
+
+The Power-Spectral Peak Cycle Timer strategy exploits hidden periodicities in cryptocurrency markets by detecting significant peaks in the power spectral density. The strategy uses Fast Fourier Transform (FFT) analysis to identify dominant market cycles and times entry/exit signals based on cycle phase analysis.
+
+\section{Mathematical Framework}
+
+\subsection{Core Equation}
+
+The power spectral density is computed as:
+\begin{equation}
+S(f) = |\mathcal{F}\{r_t\}|^2
+\end{equation}
+
+where $\mathcal{F}\{r_t\}$ is the Fourier transform of the return series $r_t$.
+
+The dominant frequency is identified as:
+\begin{equation}
+f_d = \arg\max_{f \in [f_{min}, f_{max}]} S(f)
+\end{equation}
+
+\subsection{Statistical Hypothesis}
+
+\textbf{Null Hypothesis:} $H_0$: No significant spectral peaks exist above baseline noise level
+
+\textbf{Alternative Hypothesis:} $H_1$: Dominant spectral peak exists with $S(f_d) > \lambda \cdot S_{baseline}$ where $\lambda$ is the significance threshold
+
+\section{Edge Derivation}
+
+Cryptocurrency markets exhibit hidden periodicities due to:
+\begin{itemize}
+\item Bitcoin halving cycles (approximately 4 years)
+\item Regulatory announcement cycles
+\item Institutional trading patterns
+\item Technical analysis feedback loops
+\end{itemize}
+
+These cycles create exploitable patterns that persist due to market microstructure and behavioral biases.
+
+\subsection{Market Microstructure Basis}
+
+The strategy exploits the fact that market cycles create predictable patterns in the frequency domain. When a cycle is present, the power spectral density will show concentrated energy at the corresponding frequency, distinguishable from white noise baseline.
+
+\subsection{Statistical Properties}
+
+Expected performance characteristics:
+\begin{itemize}
+\item Sharpe ratio proportional to cycle strength and consistency
+\item Maximum drawdown inversely related to cycle period stability
+\item Signal frequency dependent on cycle detection sensitivity
+\end{itemize}
+
+\section{Implementation Details}
+
+\subsection{Signal Generation}
+
+Algorithm for generating trading signals:
+
+\begin{enumerate}
+\item Apply Hann window to reduce spectral leakage
+\item Compute FFT and power spectral density
+\item Identify dominant peak within specified period range
+\item Test statistical significance using $\chi^2$ criterion
+\item Calculate current phase in dominant cycle
+\item Generate signals based on cycle phase thresholds
+\end{enumerate}
+
+\subsection{Phase-Based Trading Rules}
+
+\begin{equation}
+\text{Signal} = \begin{cases}
++1 & \text{if } |\phi - \pi| < \delta \text{ (cycle trough)} \\
+-1 & \text{if } |\phi| < \delta \text{ (cycle peak)} \\
+0 & \text{otherwise}
+\end{cases}
+\end{equation}
+
+where $\phi$ is the current cycle phase and $\delta$ is the phase threshold.
+
+\subsection{Parameter Optimization}
+
+Key parameters for optimization:
+\begin{itemize}
+\item Window size: 128-512 days (trade-off between resolution and stationarity)
+\item Significance threshold: 2-10× baseline (balance sensitivity vs noise)
+\item Period range: [10, 1000] days (exclude noise and ultra-long cycles)
+\item Phase threshold: 0.3-1.0 radians (timing precision vs signal frequency)
+\end{itemize}
+
+\section{Risk Management}
+
+\subsection{Position Sizing}
+
+Position size scales with cycle strength:
+\begin{equation}
+w = w_{base} \cdot \min\left(\frac{S(f_d)}{S_{baseline} \cdot \lambda}, 1\right)
+\end{equation}
+
+\subsection{Stop Loss Logic}
+
+Dynamic stops based on cycle period:
+\begin{equation}
+\text{Stop Width} = \sigma_{period} \cdot \sqrt{\frac{T_{cycle}}{252}}
+\end{equation}
+
+where $T_{cycle}$ is the dominant cycle period in days.
+
+\section{Expected Performance}
+
+\subsection{Theoretical Bounds}
+
+For a perfect sinusoidal cycle with signal-to-noise ratio $SNR$:
+\begin{equation}
+\text{Sharpe}_{theoretical} \leq \sqrt{SNR \cdot \frac{252}{T_{cycle}}}
+\end{equation}
+
+\subsection{Sensitivity Analysis}
+
+Strategy performance degrades with:
+\begin{itemize}
+\item Cycle frequency drift over time
+\item Non-stationary amplitude variations
+\item Interference from multiple competing cycles
+\item Market regime changes affecting cycle persistence
+\end{itemize}
+
+\section{Unit Test Specifications}
+
+\subsection{Synthetic Data Tests}
+
+Test data with known cycles should yield positive DSR:
+\begin{itemize}
+\item Pure sinusoidal price series with known period
+\item Noisy sinusoidal data with varying SNR
+\item Multiple overlapping cycles with different strengths
+\item Regime-switching cycle parameters
+\end{itemize}
+
+\subsection{Mathematical Consistency}
+
+Critical tests for implementation validation:
+\begin{itemize}
+\item FFT parseval's theorem: $\sum |r_t|^2 = \sum |S(f)|^2$
+\item Phase calculation accuracy for known sinusoids
+\item Peak detection consistency across window sizes
+\item Cycle strength correlation with known signal amplitude
+\end{itemize}
+
+\section{References}
+
+\begin{itemize}
+\item Chatfield, C. (2003). The Analysis of Time Series: An Introduction. Chapman \& Hall/CRC.
+\item Percival, D. B., \& Walden, A. T. (1993). Spectral Analysis for Physical Applications. Cambridge University Press.
+\item Hamilton, J. D. (1994). Time Series Analysis. Princeton University Press.
+\item Oppenheim, A. V., \& Schafer, R. W. (2009). Discrete-Time Signal Processing. Prentice Hall.
+\end{itemize}
+
+\end{document}
