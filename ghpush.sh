@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Implement Spectral-Entropy Collapse strategy (SBPRF Core) with Welch's method PSD estimation and comprehensive testing"
+COMMIT_MESSAGE="Implement Daily VPIN strategy with volume-synchronized order-flow imbalance detection and comprehensive testing"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then

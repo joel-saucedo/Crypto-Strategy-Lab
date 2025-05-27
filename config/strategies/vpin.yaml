@@ -1,0 +1,63 @@
+# Daily VPIN (Volume-Synchronized Order-Flow Imbalance) Strategy Configuration
+# Strategy #9: Detects toxic order flow and market stress via daily OHLCV data
+
+strategy:
+  name: "vpin"
+  type: "daily_vpin"
+  enabled: true
+  
+parameters:
+  # Core VPIN parameters
+  lookback: 50                   # Days of price/volume history for bucketing
+  buckets: 50                    # Number of equal-volume buckets
+  vpin_history_length: 252       # ~1 year of dVPIN history for percentiles
+  
+  # Flow regime thresholds
+  toxic_threshold_pct: 95        # Percentile for toxic flow detection
+  benign_threshold_pct: 10       # Percentile for benign flow detection
+  
+  # Signal processing
+  ema_smoothing: 0.1             # EMA factor for dVPIN smoothing
+  position_scale_factor: 0.5     # Scale factor for neutral regime positioning
+  
+# Volume signing method
+signing:
+  method: "return_based"         # Use return-based signing for daily data
+  handle_zeros: "forward_fill"   # Forward fill zero returns
+
+# Risk management
+risk:
+  max_position_size: 0.08        # Maximum 8% position size (conservative for flow strategy)
+  stop_loss_pct: 0.015           # 1.5% stop loss
+  take_profit_pct: 0.03          # 3% take profit
+  
+  # Flow-based position sizing
+  toxic_flow_scale: 0.3          # Scale down to 30% in toxic flow
+  benign_flow_scale: 1.5         # Scale up to 150% in benign flow
+  
+# Backtesting parameters
+backtest:
+  start_date: "2020-01-01"
+  end_date: "2023-12-31"
+  initial_capital: 100000
+  commission: 0.001             # 0.1% commission per trade
+  
+# Performance requirements
+performance:
+  min_dsr: 0.95                 # Minimum Daily Sharpe Ratio
+  max_drawdown: 0.04            # Maximum 4% drawdown
+  min_trades_per_month: 8       # Higher frequency for flow strategy
+
+# Mathematical validation
+validation:
+  volume_conservation_check: true    # Verify Buy + Sell = Total Volume
+  dvpin_bounds_check: true          # Verify dVPIN ∈ [0,1]
+  bucket_volume_check: true        # Verify equal-volume bucketing
+  signal_bounds_check: true        # Verify signals ∈ [-1,1]
+  no_lookahead_check: true         # Verify no future information leakage
+  
+# Monitoring and alerts
+monitoring:
+  dvpin_alert_threshold: 0.9     # Alert when dVPIN > 90th percentile
+  volume_anomaly_threshold: 3.0  # Alert when volume > 3x average
+  regime_change_sensitivity: 0.8  # Sensitivity for regime change detection
