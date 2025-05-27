@@ -1,0 +1,156 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Cramér-Rao Drift-Significance Filter: Mathematical Foundation}
+\author{Crypto-Strategy-Lab}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Abstract}
+
+The Cramér-Rao Drift-Significance Filter leverages the fundamental statistical principle that the variance of any unbiased estimator of a parameter cannot be smaller than the Cramér-Rao lower bound. Applied to drift detection in financial time series, this creates a rigorous statistical filter that only signals when drift estimates achieve sufficient statistical significance to overcome the inherent noise floor.
+
+\section{Mathematical Framework}
+
+\subsection{Core Equation}
+
+The strategy is built on the Cramér-Rao lower bound for drift estimation:
+
+\begin{equation}
+\text{Var}(\hat{\mu}) \geq \frac{\sigma^2}{N}
+\end{equation}
+
+Where $\hat{\mu}$ is the sample mean (drift estimator), $\sigma^2$ is the true variance, and $N$ is the sample size.
+
+The t-statistic for testing drift significance:
+
+\begin{equation}
+t = \frac{\hat{\mu}}{SE(\hat{\mu})} = \frac{\hat{\mu}}{\sigma/\sqrt{N}}
+\end{equation}
+
+\subsection{Statistical Hypothesis}
+
+\textbf{Null Hypothesis:} $H_0: \mu = 0$ (no drift)
+
+\textbf{Alternative Hypothesis:} $H_1: \mu \neq 0$ (significant drift exists)
+
+\section{Edge Derivation}
+
+The trading edge emerges from the fundamental asymmetry between signal and noise in financial markets. The Cramér-Rao bound provides the theoretical minimum variance for any drift estimator, establishing a noise floor below which no estimator can perform.
+
+\subsection{Market Microstructure Basis}
+
+In cryptocurrency markets, true economic drift (due to adoption, regulatory changes, or fundamental shifts) creates persistent directional pressure that compounds over time. However, market microstructure noise, algorithmic trading, and mean-reverting arbitrage create high-frequency fluctuations that obscure short-term drift signals.
+
+The Cramér-Rao framework separates these regimes by requiring that drift estimates achieve statistical significance beyond what random noise could produce. Only sustained directional pressure can generate t-statistics exceeding the critical threshold consistently.
+
+\subsection{Statistical Properties}
+
+For normally distributed returns with true drift $\mu$ and volatility $\sigma$:
+
+\begin{itemize}
+\item Expected t-statistic: $E[t] = \frac{\mu}{\sigma/\sqrt{N}}$
+\item Variance of t-statistic: $\text{Var}(t) = 1$ (under $H_0$)
+\item Critical value for $\alpha = 0.05$: $t_{crit} \approx 2.0$ (for large N)
+\end{itemize}
+
+\section{Implementation Details}
+
+\subsection{Signal Generation}
+
+The algorithm operates in rolling windows of length $N$ (typically 90 days):
+
+\begin{enumerate}
+\item Calculate sample statistics: $\hat{\mu} = \frac{1}{N}\sum_{i=1}^{N} r_i$, $\hat{\sigma} = \sqrt{\frac{1}{N-1}\sum_{i=1}^{N} (r_i - \hat{\mu})^2}$
+\item Compute t-statistic: $t = \frac{\hat{\mu}}{\hat{\sigma}/\sqrt{N}}$
+\item Calculate p-value: $p = 2 \cdot P(T_{N-1} > |t|)$ where $T_{N-1}$ is Student's t-distribution
+\item Apply significance filter: Signal only if $|t| > t_{min}$ (typically 2.0)
+\item Generate directional signal: $\text{signal} = \text{sign}(\hat{\mu})$ if significant, 0 otherwise
+\end{enumerate}
+
+\subsection{Parameter Optimization}
+
+Key parameters for optimization:
+\begin{itemize}
+\item Lookback window $N$: Controls trade-off between statistical power and responsiveness
+\item Minimum t-statistic $t_{min}$: Sets significance threshold (higher = more selective)
+\item Confidence level: Determines critical values for hypothesis testing
+\end{itemize}
+
+\section{Risk Management}
+
+\subsection{Position Sizing}
+
+Position size scales with signal strength:
+\begin{equation}
+w = w_{base} \cdot \min\left(\frac{|t|}{t_{max}}, 1\right)
+\end{equation}
+
+Where $w_{base}$ is the base position size and $t_{max}$ is the practical upper bound for t-statistics (typically 5.0).
+
+\subsection{Stop Loss Logic}
+
+Dynamic stop-loss placement based on statistical confidence:
+\begin{equation}
+\text{Stop Distance} = k \cdot \hat{\sigma} \cdot \sqrt{\Delta t}
+\end{equation}
+
+Where $k$ is inversely related to signal strength, ensuring tighter stops for weaker signals.
+
+\section{Expected Performance}
+
+\subsection{Theoretical Bounds}
+
+For a strategy with true edge $\mu > 0$ and detection threshold $t_{min}$:
+
+\begin{itemize}
+\item Hit rate: $P(|t| > t_{min} | \mu \neq 0)$ increases with $|\mu|/\sigma$
+\item Expected Sharpe ratio: Bounded by $\sqrt{N} \cdot |\mu|/\sigma$ when fully invested
+\item DSR expectation: Should exceed 0.95 when $|\mu|/\sigma > 0.3$ annually
+\end{itemize}
+
+\subsection{Sensitivity Analysis}
+
+Strategy performance depends critically on:
+\begin{enumerate}
+\item Signal-to-noise ratio in the underlying asset
+\item Persistence of drift over the lookback window
+\item Market regime (trending vs. mean-reverting periods)
+\item Parameter calibration to asset characteristics
+\end{enumerate}
+
+\section{Unit Test Specifications}
+
+\subsection{Synthetic Data Tests}
+
+Tests verify positive DSR on synthetic data with known properties:
+\begin{itemize}
+\item Trending regimes with $\mu = 0.05\% $ daily, $\sigma = 2\%$
+\item Mixed regimes alternating between drift and noise
+\item Regime-switching data with varying persistence
+\end{itemize}
+
+\subsection{Mathematical Consistency}
+
+Critical tests include:
+\begin{itemize}
+\item Verification that $\text{Var}(\hat{\mu}) = \sigma^2/N$ for normal data
+\item Correct t-statistic calculation matching scipy.stats
+\item Proper handling of degrees of freedom in critical value calculation
+\item Signal strength proportional to statistical significance
+\end{itemize}
+
+\section{References}
+
+\begin{itemize}
+\item Cramér, H. (1946). Mathematical Methods of Statistics. Princeton University Press.
+\item Rao, C.R. (1945). Information and accuracy attainable in the estimation of statistical parameters. Bulletin of the Calcutta Mathematical Society, 37, 81-91.
+\item Lo, A.W. \& MacKinlay, A.C. (1988). Stock market prices do not follow random walks: Evidence from a simple specification test. Review of Financial Studies, 1(1), 41-66.
+\end{itemize}
+
+\end{document}

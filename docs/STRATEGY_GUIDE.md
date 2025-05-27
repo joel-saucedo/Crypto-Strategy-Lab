@@ -287,3 +287,21 @@ All strategies integrate with the core risk framework:
 **Risk Hooks:** [Insert risk management details]
 
 **Implementation:** `src/strategies/hurst_exponent/`
+
+
+---
+
+## 15. Drift Significance
+
+**Equation:**
+```
+[Insert equation here]
+```
+
+**Edge:** [Insert statistical hypothesis]
+
+**Trade Rule:** [Insert trade rule]
+
+**Risk Hooks:** [Insert risk management details]
+
+**Implementation:** `src/strategies/drift_significance/`
