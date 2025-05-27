@@ -1,0 +1,45 @@
+# Lag-k Autocorrelation Strategy Configuration
+
+strategy:
+  name: "lag_autocorr"
+  description: "Momentum/reversal filter based on serial correlation"
+  version: "1.0"
+
+# Parameter grid for hyperoptimization
+param_grid:
+  lookback_days:
+    min: 30
+    max: 250
+    step: 10
+    
+  lag_k:
+    values: [1, 2, 3, 5, 10]
+    
+  significance_threshold:
+    min: 0.01
+    max: 0.10
+    step: 0.01
+    
+  min_correlation:
+    min: 0.05
+    max: 0.30
+    step: 0.05
+
+# Risk parameters
+risk:
+  max_position: 0.05  # 5% max position
+  stop_loss: 0.10     # 10% stop loss
+  take_profit: 0.20   # 20% take profit
+  
+# Signal parameters
+signal:
+  entry_threshold: 2.0    # t-stat threshold
+  exit_threshold: 0.5     # exit when significance drops
+  rebalance_freq: "daily"
+  
+# Current best parameters (updated by hyperopt)
+best_params:
+  lookback_days: 90
+  lag_k: 1
+  significance_threshold: 0.05
+  min_correlation: 0.10

@@ -1,0 +1,36 @@
+# Base Configuration for Crypto Strategy Lab
+
+# Trading Parameters
+fees:
+  maker: 0.001  # 0.1%
+  taker: 0.002  # 0.2%
+  
+slippage:
+  linear: 0.0005  # 0.05% linear impact
+  sqrt: 0.001     # sqrt(volume) component
+
+# Risk Management
+position_limits:
+  max_leverage: 3.0
+  max_position_size: 0.1  # 10% of portfolio
+  kelly_cap: 0.25         # Cap Kelly at 25%
+  var_limit: 0.02         # 2% daily VaR
+
+# Validation Thresholds
+validation:
+  min_dsr: 0.95
+  min_psr: 0.95
+  min_sharpe: 1.0
+  max_drawdown: 0.20
+
+# Backtesting
+backtest:
+  initial_capital: 100000
+  rebalance_freq: "daily"
+  commission_model: "percentage"
+  
+# Data Processing
+data:
+  price_fields: ["open", "high", "low", "close", "volume"]
+  timeframes: ["1h", "4h", "1d"]
+  lookback_days: 365

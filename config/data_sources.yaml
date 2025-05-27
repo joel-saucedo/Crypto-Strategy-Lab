@@ -1,0 +1,31 @@
+# Data Source Configuration
+
+exchanges:
+  binance:
+    api_url: "https://api.binance.com"
+    websocket_url: "wss://stream.binance.com:9443"
+    lag_ms: 50
+    rate_limit: 1200  # requests per minute
+    
+  coinbase:
+    api_url: "https://api.exchange.coinbase.com"
+    websocket_url: "wss://ws-feed.exchange.coinbase.com"
+    lag_ms: 80
+    rate_limit: 300
+    
+  kraken:
+    api_url: "https://api.kraken.com"
+    websocket_url: "wss://ws.kraken.com"
+    lag_ms: 100
+    rate_limit: 60
+
+# Symbol mappings
+symbols:
+  BTC: ["BTCUSDT", "BTC-USD", "XXBTZUSD"]
+  ETH: ["ETHUSDT", "ETH-USD", "XETHZUSD"]
+  
+# Data quality filters
+filters:
+  min_volume_usd: 1000000  # $1M daily volume
+  max_spread_bps: 50       # 50 basis points
+  min_uptime_pct: 95       # 95% uptime required
