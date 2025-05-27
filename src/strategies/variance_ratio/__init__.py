@@ -1,0 +1,1 @@
+"""Strategy module: variance_ratio"""
