@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Implement Variance Ratio and Hurst Exponent strategies with comprehensive testing and mathematical validation"
+COMMIT_MESSAGE="Implement Cramér-Rao Drift-Significance Filter strategy with comprehensive testing and mathematical foundation"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then
