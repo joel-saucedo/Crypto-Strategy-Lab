@@ -1,0 +1,45 @@
+# Hurst Exponent Strategy Configuration
+
+strategy:
+  name: "hurst_exponent"
+  description: "Regime detection using DFA-based Hurst exponent estimation"
+  version: "1.0"
+
+# Parameter grid for hyperoptimization
+param_grid:
+  lookback_days:
+    min: 100
+    max: 300
+    step: 20
+    
+  trend_threshold:
+    min: 0.52
+    max: 0.65
+    step: 0.02
+    
+  mean_revert_threshold:
+    min: 0.35
+    max: 0.48
+    step: 0.02
+    
+  min_confidence:
+    min: 0.6
+    max: 0.9
+    step: 0.05
+
+# Risk parameters
+risk:
+  max_position: 0.05  # 5% max position
+  stop_loss: 0.12     # 12% stop loss (wider for trending)
+  take_profit: 0.25   # 25% take profit
+  
+# Signal parameters
+signal:
+  rebalance_freq: "weekly"  # Less frequent for regime-based strategy
+  
+# Current best parameters (updated by hyperopt)
+best_params:
+  lookback_days: 200
+  trend_threshold: 0.55
+  mean_revert_threshold: 0.45
+  min_confidence: 0.75

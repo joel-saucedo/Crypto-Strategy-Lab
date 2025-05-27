@@ -1,0 +1,1 @@
+"""Strategy module: hurst_exponent"""

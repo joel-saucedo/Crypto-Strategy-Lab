@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Implement Variance-Ratio strategy with Lo-MacKinlay test and comprehensive testing framework"
+COMMIT_MESSAGE="Implement Hurst Exponent strategy with DFA-based regime detection and comprehensive testing"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then
