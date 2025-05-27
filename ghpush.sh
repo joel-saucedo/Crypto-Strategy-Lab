@@ -5,7 +5,7 @@
 
 # Variables - Replace these with your desired values
 REPO_NAME="Crypto-Strategy-Lab"
-COMMIT_MESSAGE="Add lag autocorrelation strategy and hyperoptimization pipeline"
+COMMIT_MESSAGE="Add core feature engineering, position sizing, and validation framework"
 
 # Check if this is already a git repository
 if [ ! -d ".git" ]; then
