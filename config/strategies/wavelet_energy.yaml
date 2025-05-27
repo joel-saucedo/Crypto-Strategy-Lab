@@ -1,0 +1,93 @@
+# Wavelet Energy-Ratio Breakout Strategy Configuration
+# Strategy #10: Detects breakouts via energy redistribution across wavelet scales
+
+strategy:
+  name: "wavelet_energy"
+  type: "wavelet_energy_breakout"
+  enabled: true
+  
+parameters:
+  # Wavelet decomposition parameters
+  wavelet_type: "db4"               # Daubechies 4 wavelet (good balance of smoothness/localization)
+  decomposition_levels: 4           # Number of decomposition levels (scales)
+  
+  # Analysis window parameters
+  lookback: 100                     # Price history for analysis
+  
+  # Energy breakout detection thresholds
+  energy_threshold_pct: 80          # Minimum energy concentration percentage
+  breakout_threshold_pct: 90        # Percentile threshold for breakout detection
+  
+  # Signal processing parameters
+  signal_decay: 0.85                # Signal decay factor for persistence
+  trend_lookback: 20                # Lookback for trend direction calculation
+
+# Wavelet scale interpretation
+scales:
+  approximation:                    # Scale 0 (lowest frequency)
+    interpretation: "trend"
+    signal_weight: 0.5              # Conservative weighting for trend signals
+    
+  detail_1:                         # Scale 1 (medium frequency)  
+    interpretation: "cycle"
+    signal_weight: 0.7              # Moderate weighting for cycle signals
+    
+  detail_high:                      # Scale 2+ (high frequency)
+    interpretation: "breakout"  
+    signal_weight: 1.0              # Full weighting for breakout signals
+
+# Risk management
+risk:
+  max_position_size: 0.12           # Maximum 12% position size
+  stop_loss_pct: 0.02               # 2% stop loss
+  take_profit_pct: 0.04             # 4% take profit
+  
+  # Pattern-based position sizing
+  breakout_scale_factor: 1.2        # Scale up for high-frequency breakouts
+  trend_scale_factor: 0.8           # Scale down for trend signals
+  cycle_scale_factor: 1.0           # Normal sizing for cycle signals
+  
+# Backtesting parameters
+backtest:
+  start_date: "2020-01-01"
+  end_date: "2023-12-31"
+  initial_capital: 100000
+  commission: 0.001                 # 0.1% commission per trade
+  
+# Performance requirements
+performance:
+  min_dsr: 0.95                     # Minimum Daily Sharpe Ratio
+  max_drawdown: 0.05                # Maximum 5% drawdown
+  min_trades_per_month: 6           # Minimum trading frequency
+
+# Mathematical validation
+validation:
+  energy_conservation_check: true    # Verify energy ratios sum to 1
+  wavelet_reconstruction_check: true # Verify decomposition accuracy
+  scale_interpretation_check: true   # Verify scale assignments
+  signal_bounds_check: true         # Verify signals ∈ [-1,1]
+  no_lookahead_check: true          # Verify no future information leakage
+  
+# Advanced wavelet parameters
+advanced:
+  # Alternative wavelets for experimentation
+  alternative_wavelets:
+    - "haar"                        # Simplest wavelet
+    - "db8"                         # Higher order Daubechies
+    - "bior2.2"                     # Biorthogonal wavelet
+    - "coif2"                       # Coiflets wavelet
+    
+  # Adaptive decomposition levels based on data length
+  adaptive_levels: true
+  min_points_per_level: 32          # Minimum points needed per decomposition level
+  
+  # Energy threshold adaptation
+  adaptive_thresholds: true
+  threshold_adaptation_window: 252   # ~1 year for threshold calibration
+
+# Monitoring and alerts  
+monitoring:
+  energy_concentration_alert: 0.8   # Alert when energy concentration > 80%
+  breakout_strength_alert: 0.7      # Alert when breakout strength > 70%
+  scale_dominance_alert: 0.6        # Alert when single scale dominance > 60%
+  decomposition_error_threshold: 0.01 # Alert on decomposition errors
