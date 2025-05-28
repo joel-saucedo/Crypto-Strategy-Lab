@@ -44,7 +44,7 @@ else
     # Run tests before commit
     echo "Running tests to ensure code quality..."
     if command -v pytest &> /dev/null; then
-        pytest src/strategies/*/test_signal.py -v
+        pytest src/strategies/*/test_*_signal.py -v
         TEST_STATUS=$?
         if [ $TEST_STATUS -ne 0 ]; then
             read -p "Tests failed. Do you want to continue with the commit? (y/N): " CONTINUE
