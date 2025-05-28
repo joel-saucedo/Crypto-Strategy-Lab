@@ -12,8 +12,10 @@ from datetime import datetime, timedelta
 import asyncio
 import logging
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Add project root and src to path for imports
+project_root = os.path.join(os.path.dirname(__file__), '..')
+sys.path.insert(0, project_root)
+sys.path.insert(0, os.path.join(project_root, 'src'))
 
 # Configure logging
 logging.basicConfig(

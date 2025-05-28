@@ -11,9 +11,10 @@ import numpy as np
 from datetime import datetime, timedelta
 import asyncio
 
-# Add src to path
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
+# Add project root and src to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
 
 try:
     from core.backtest_engine import (
