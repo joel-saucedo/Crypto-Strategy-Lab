@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 import warnings
 from scipy import stats
 from sklearn.preprocessing import StandardScaler, RobustScaler
-import talib
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,6 +28,129 @@ class DataPreprocessor:
         """
         self.config = config or self._default_config()
         self.scalers = {}
+    
+    @staticmethod
+    def sma(series: pd.Series, period: int) -> pd.Series:
+        """Simple Moving Average."""
+        return series.rolling(window=period).mean()
+    
+    @staticmethod
+    def ema(series: pd.Series, period: int, alpha: Optional[float] = None) -> pd.Series:
+        """Exponential Moving Average."""
+        if alpha is None:
+            alpha = 2.0 / (period + 1.0)
+        return series.ewm(alpha=alpha, adjust=False).mean()
+    
+    @staticmethod
+    def rsi(series: pd.Series, period: int = 14) -> pd.Series:
+        """Relative Strength Index."""
+        delta = series.diff()
+        gain = delta.where(delta > 0, 0.0)
+        loss = -delta.where(delta < 0, 0.0)
+        
+        avg_gain = gain.rolling(window=period).mean()
+        avg_loss = loss.rolling(window=period).mean()
+        
+        rs = avg_gain / avg_loss
+        rsi = 100.0 - (100.0 / (1.0 + rs))
+        return rsi
+    
+    @staticmethod
+    def macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> Tuple[pd.Series, pd.Series, pd.Series]:
+        """MACD (Moving Average Convergence Divergence)."""
+        ema_fast = DataPreprocessor.ema(series, fast)
+        ema_slow = DataPreprocessor.ema(series, slow)
+        
+        macd_line = ema_fast - ema_slow
+        signal_line = DataPreprocessor.ema(macd_line, signal)
+        histogram = macd_line - signal_line
+        
+        return macd_line, signal_line, histogram
+    
+    @staticmethod
+    def bollinger_bands(series: pd.Series, period: int = 20, std_dev: float = 2.0) -> Tuple[pd.Series, pd.Series, pd.Series]:
+        """Bollinger Bands."""
+        middle = series.rolling(window=period).mean()
+        std = series.rolling(window=period).std()
+        
+        upper = middle + (std * std_dev)
+        lower = middle - (std * std_dev)
+        
+        return upper, middle, lower
+    
+    @staticmethod
+    def true_range(high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
+        """True Range calculation."""
+        prev_close = close.shift(1)
+        tr1 = high - low
+        tr2 = np.abs(high - prev_close)
+        tr3 = np.abs(low - prev_close)
+        
+        return np.maximum(tr1, np.maximum(tr2, tr3))
+    
+    @staticmethod
+    def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+        """Average True Range."""
+        tr = DataPreprocessor.true_range(high, low, close)
+        return tr.rolling(window=period).mean()
+    
+    @staticmethod
+    def stochastic(high: pd.Series, low: pd.Series, close: pd.Series, k_period: int = 14, d_period: int = 3) -> Tuple[pd.Series, pd.Series]:
+        """Stochastic Oscillator."""
+        lowest_low = low.rolling(window=k_period).min()
+        highest_high = high.rolling(window=k_period).max()
+        
+        k_percent = 100 * ((close - lowest_low) / (highest_high - lowest_low))
+        d_percent = k_percent.rolling(window=d_period).mean()
+        
+        return k_percent, d_percent
+    
+    @staticmethod
+    def williams_r(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+        """Williams %R."""
+        highest_high = high.rolling(window=period).max()
+        lowest_low = low.rolling(window=period).min()
+        
+        wr = -100 * ((highest_high - close) / (highest_high - lowest_low))
+        return wr
+    
+    @staticmethod
+    def cci(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 20) -> pd.Series:
+        """Commodity Channel Index."""
+        typical_price = (high + low + close) / 3
+        sma_tp = typical_price.rolling(window=period).mean()
+        mean_dev = typical_price.rolling(window=period).apply(lambda x: np.mean(np.abs(x - x.mean())))
+        
+        cci = (typical_price - sma_tp) / (0.015 * mean_dev)
+        return cci
+    
+    @staticmethod
+    def adx(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+        """Average Directional Index."""
+        # Calculate True Range
+        tr = DataPreprocessor.true_range(high, low, close)
+        
+        # Calculate Directional Movement
+        plus_dm = np.where((high.diff() > low.diff().abs()) & (high.diff() > 0), high.diff(), 0)
+        minus_dm = np.where((low.diff().abs() > high.diff()) & (low.diff() < 0), low.diff().abs(), 0)
+        
+        plus_dm = pd.Series(plus_dm, index=high.index)
+        minus_dm = pd.Series(minus_dm, index=low.index)
+        
+        # Smooth the values
+        tr_smooth = tr.rolling(window=period).mean()
+        plus_dm_smooth = plus_dm.rolling(window=period).mean()
+        minus_dm_smooth = minus_dm.rolling(window=period).mean()
+        
+        # Calculate Directional Indicators
+        plus_di = 100 * (plus_dm_smooth / tr_smooth)
+        minus_di = 100 * (minus_dm_smooth / tr_smooth)
+        
+        # Calculate ADX
+        dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di)
+        adx = dx.rolling(window=period).mean()
+        
+        return adx
         
     def _default_config(self) -> Dict[str, Any]:
         """Default preprocessing configuration."""
@@ -190,31 +312,30 @@ class DataPreprocessor:
         config = self.config['technical_indicators']
         
         # Price-based indicators
-        df['sma_20'] = talib.SMA(df['close'], timeperiod=20)
-        df['ema_20'] = talib.EMA(df['close'], timeperiod=20)
-        df['sma_50'] = talib.SMA(df['close'], timeperiod=50)
-        df['ema_50'] = talib.EMA(df['close'], timeperiod=50)
+        df['sma_20'] = self.sma(df['close'], period=20)
+        df['ema_20'] = self.ema(df['close'], period=20)
+        df['sma_50'] = self.sma(df['close'], period=50)
+        df['ema_50'] = self.ema(df['close'], period=50)
         
         # RSI
-        df['rsi'] = talib.RSI(df['close'], timeperiod=config['rsi_period'])
+        df['rsi'] = self.rsi(df['close'], period=config['rsi_period'])
         
         # MACD
-        macd, macd_signal, macd_hist = talib.MACD(
+        macd, macd_signal, macd_hist = self.macd(
             df['close'],
-            fastperiod=config['macd_fast'],
-            slowperiod=config['macd_slow'],
-            signalperiod=config['macd_signal']
+            fast=config['macd_fast'],
+            slow=config['macd_slow'],
+            signal=config['macd_signal']
         )
         df['macd'] = macd
         df['macd_signal'] = macd_signal
         df['macd_histogram'] = macd_hist
         
         # Bollinger Bands
-        bb_upper, bb_middle, bb_lower = talib.BBANDS(
+        bb_upper, bb_middle, bb_lower = self.bollinger_bands(
             df['close'],
-            timeperiod=config['bollinger_period'],
-            nbdevup=config['bollinger_std'],
-            nbdevdn=config['bollinger_std']
+            period=config['bb_period'],
+            std_dev=config['bb_std']
         )
         df['bb_upper'] = bb_upper
         df['bb_middle'] = bb_middle
@@ -222,23 +343,23 @@ class DataPreprocessor:
         df['bb_position'] = (df['close'] - bb_lower) / (bb_upper - bb_lower)
         
         # ATR (Average True Range)
-        df['atr'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=config['atr_period'])
+        df['atr'] = self.atr(df['high'], df['low'], df['close'], period=config['atr_period'])
         
         # Volume indicators
-        df['volume_sma'] = talib.SMA(df['volume'], timeperiod=config['volume_sma_period'])
+        df['volume_sma'] = self.sma(df['volume'], period=config['volume_sma_period'])
         df['volume_ratio'] = df['volume'] / df['volume_sma']
         
         # Stochastic Oscillator
-        df['stoch_k'], df['stoch_d'] = talib.STOCH(df['high'], df['low'], df['close'])
+        df['stoch_k'], df['stoch_d'] = self.stochastic(df['high'], df['low'], df['close'])
         
         # Williams %R
-        df['williams_r'] = talib.WILLR(df['high'], df['low'], df['close'])
+        df['williams_r'] = self.williams_r(df['high'], df['low'], df['close'])
         
         # Commodity Channel Index
-        df['cci'] = talib.CCI(df['high'], df['low'], df['close'])
+        df['cci'] = self.cci(df['high'], df['low'], df['close'])
         
         # Average Directional Index
-        df['adx'] = talib.ADX(df['high'], df['low'], df['close'])
+        df['adx'] = self.adx(df['high'], df['low'], df['close'])
         
         return df
     
