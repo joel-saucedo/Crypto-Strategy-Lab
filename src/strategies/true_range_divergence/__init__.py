@@ -23,7 +23,7 @@ Usage:
     signals = strategy.generate(ohlcv_data)
 """
 
-from .strategy import TrueRangeDivergenceSignal
+from .signal import TrueRangeDivergenceSignal
 
 __all__ = ['TrueRangeDivergenceSignal']
 __version__ = '1.0.0'

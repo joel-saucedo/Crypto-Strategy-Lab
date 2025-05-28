@@ -13,20 +13,23 @@ Tests cover:
 9. Monte Carlo DSR validation
 """
 
-import pytest
+import unittest
 import numpy as np
 import pandas as pd
 from unittest.mock import patch
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from strategies.wavelet_energy.strategy import WaveletEnergyBreakoutSignal
+# Add src directory to path for imports
+src_path = os.path.join(os.path.dirname(__file__), '..', '..', '..')
+sys.path.insert(0, src_path)
+
+from src.strategies.wavelet_energy.signal import WaveletEnergyBreakoutSignal
 
 
-class TestWaveletEnergyBreakoutSignal:
+class TestWaveletEnergyBreakoutSignal(unittest.TestCase):
     
-    def setup_method(self):
+    def setUp(self):
         """Set up test fixtures."""
         self.config = {
             'wavelet_type': 'db4',
@@ -429,3 +432,7 @@ class TestWaveletEnergyBreakoutSignal:
             
             # Test should complete most simulations
             assert len(daily_returns) > 30, "Should complete most simulations"
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -12,20 +12,23 @@ Tests cover:
 8. Monte Carlo DSR validation
 """
 
-import pytest
+import unittest
 import numpy as np
 import pandas as pd
 from unittest.mock import patch
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from strategies.spectral_entropy.strategy import SpectralEntropyCollapseSignal
+# Add src directory to path for imports
+src_path = os.path.join(os.path.dirname(__file__), '..', '..', '..')
+sys.path.insert(0, src_path)
+
+from src.strategies.spectral_entropy.signal import SpectralEntropyCollapseSignal
 
 
-class TestSpectralEntropyCollapseSignal:
+class TestSpectralEntropyCollapseSignal(unittest.TestCase):
     
-    def setup_method(self):
+    def setUp(self):
         """Set up test fixtures."""
         self.config = {
             'lookback': 100,
@@ -389,3 +392,7 @@ if __name__ == "__main__":
     
     print("\n🎉 All Spectral-Entropy Collapse Strategy tests passed!")
     print("Strategy implementation mathematically sound and ready for deployment.")
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -19,9 +19,9 @@ import pandas as pd
 from unittest.mock import patch
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from strategies.vpin.strategy import VPINStrategy
+from src.strategies.vpin.signal import VPINStrategy
 
 
 class TestVPINStrategy:

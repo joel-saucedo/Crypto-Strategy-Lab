@@ -3,7 +3,7 @@ Unit tests for spectral_peaks strategy.
 Validates implementation against mathematical expectations.
 """
 
-import pytest
+import unittest
 import numpy as np
 import pandas as pd
 import sys
@@ -15,9 +15,9 @@ sys.path.insert(0, str(project_root))
 
 from src.strategies.spectral_peaks.signal import SpectralpeaksSignal
 
-class TestSpectralpeaksSignal:
+class TestSpectralpeaksSignal(unittest.TestCase):
     
-    def setup_method(self):
+    def setUp(self):
         """Setup test fixtures."""
         self.signal = SpectralpeaksSignal()
         
@@ -246,3 +246,7 @@ class TestSpectralpeaksSignal:
         extreme_returns = pd.Series([-0.5, 0.8, -0.3, 0.6] * 100)
         signals = self.signal.generate(extreme_returns)
         assert signals.isin([-1, 0, 1]).all(), "Should handle extreme values gracefully"
+
+
+if __name__ == '__main__':
+    unittest.main()
