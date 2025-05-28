@@ -1,83 +1,83 @@
-# Contributing to Crypto-Strategy-Lab
+# Contributing to Crypto Strategy Lab
 
-This document outlines the process for adding new strategies to the framework while maintaining statistical rigor and code quality.
+This document outlines the process for contributing new strategies to the framework while maintaining statistical rigor and code quality.
 
-## Quick Start: Adding a New Strategy
+## Quick Start
 
 ### 1. Generate Strategy Scaffold
 
 ```bash
-python scripts/new_strategy.py my_new_edge
+python scripts/new_strategy.py my_new_strategy
 ```
 
-This generates:
-- `config/strategies/my_new_edge.yaml` (parameter grid stub)
-- `src/strategies/my_new_edge/` with templated `signal.py` and `test_signal.py`
-- `docs/pdf_src/my_new_edge.tex` (LaTeX template)
+This creates:
+- `config/strategies/my_new_strategy.yaml` - Parameter configuration
+- `src/strategies/my_new_strategy/` - Strategy implementation directory
+- `docs/pdf_src/my_new_strategy.tex` - LaTeX documentation template
 
-### 2. Mathematical Foundation First
+### 2. Mathematical Foundation
 
-**CRITICAL:** Write the mathematical proof before any code.
+Write the mathematical proof before implementation:
 
-1. Complete `docs/pdf_src/my_new_edge.tex` with:
+1. Complete `docs/pdf_src/my_new_strategy.tex` with:
    - Formal hypothesis statement
    - Statistical edge derivation
    - Expected performance bounds
    - Risk characteristics
 
-2. Build PDF: `make -C docs/pdf_src my_new_edge.pdf`
+2. Build PDF: `make -C docs/pdf_src my_new_strategy.pdf`
 
-3. Update `docs/STRATEGY_GUIDE.md` with equation and trade rule
+3. Update `docs/STRATEGY_GUIDE.md` with strategy documentation
 
-### 3. Implementation Checklist
+### 3. Implementation Requirements
 
-#### Mathematical Implementation
-- [ ] Copy equations into `signal.py` header docstring
-- [ ] Implement `generate(self, returns, **context)` method
-- [ ] Ensure output is `pd.Series` with values in `{-1, 0, 1}`
-- [ ] Use only parameters from YAML configuration
-- [ ] No hardcoded constants or look-ahead bias
+#### Core Implementation
+- Implement `generate(self, returns, **context)` method in `signal.py`
+- Ensure output is `pd.Series` with values in `{-1, 0, 1}`
+- Use only parameters from YAML configuration
+- No hardcoded constants or look-ahead bias
+- Include mathematical equations in docstring
 
 #### Testing Requirements
-Write `test_signal.py` that verifies:
-- [ ] **No NaN Output:** `test_no_nan_output()`
-- [ ] **Index Alignment:** `test_index_alignment()`
-- [ ] **Signal Range:** `test_signal_range()`
-- [ ] **No Look-Ahead:** `test_no_look_ahead()`
-- [ ] **Monte Carlo DSR:** `test_monte_carlo_dsr()` with synthetic data
-- [ ] **Parameter Sensitivity:** `test_parameter_sensitivity()`
+Create `test_signal.py` with these tests:
+- **No NaN Output:** Verify signal generation produces valid outputs
+- **Index Alignment:** Confirm proper time series alignment
+- **Signal Range:** Validate signal values are within expected range
+- **No Look-Ahead:** Ensure no future information is used
+- **Monte Carlo DSR:** Test with synthetic data for statistical significance
+- **Parameter Sensitivity:** Validate robustness across parameter ranges
 
 #### Configuration
-- [ ] Define parameter grid in `config/strategies/my_new_edge.yaml`
-- [ ] Include reasonable bounds for hyperoptimization
-- [ ] Set appropriate risk limits
-- [ ] Document parameter meanings
+- Define parameter grid in `config/strategies/my_new_strategy.yaml`
+- Include reasonable bounds for optimization
+- Set appropriate risk limits
+- Document all parameter meanings
 
-### 4. Validation Pipeline
+### 4. Validation Process
 
 #### Local Testing
 ```bash
-# Run unit tests
-pytest src/strategies/my_new_edge/test_signal.py -v
+# Unit tests
+pytest src/strategies/my_new_strategy/test_signal.py -v
 
-# Run hyperparameter optimization
-python scripts/run_hyperopt.py my_new_edge
+# Hyperparameter optimization
+python scripts/run_hyperopt.py my_new_strategy
 
-# Validate DSR threshold
-python scripts/validate_strategy.py my_new_edge
+# Strategy validation
+python scripts/validate_strategy.py my_new_strategy
 ```
 
 #### Pull Request Requirements
-All PRs must pass:
-1. **Code Quality:** Linting, type hints, documentation
-2. **Unit Tests:** All tests pass with 100% coverage
-3. **Integration Tests:** Strategy works with backtest engine
-4. **DSR Gate:** Pooled OOS DSR ≥ 0.95
-5. **Stress Tests:** Passes bootstrap and permutation tests
+All contributions must pass:
+1. **Code Quality:** Linting, type hints, comprehensive documentation
+2. **Unit Tests:** 100% test coverage with all tests passing
+3. **Integration Tests:** Strategy compatibility with backtest engine
+4. **DSR Validation:** Out-of-sample DSR ≥ 0.95
+5. **Stress Tests:** Bootstrap and permutation test validation
 
 ## Code Style Guidelines
 
-### Signal Class Template
+### Strategy Class Template
 ```python
 """
 Strategy Name: Brief mathematical description
@@ -87,17 +87,133 @@ Mathematical foundation:
 
 Edge: Statistical hypothesis
 Trade rule: Precise entry/exit logic
-Risk hooks: Position sizing and limits
+Risk management: Position sizing and limits
 """
 
 import numpy as np
 import pandas as pd
 from typing import Dict, Any
-import yaml
 
-class StrategyNameSignal:
+class MyNewStrategySignal:
     """
     Brief description with equation reference.
+    
+    This strategy implements [mathematical concept] to detect
+    [market inefficiency] in cryptocurrency markets.
+    """
+    
+    def __init__(self, **params):
+        """Initialize strategy with parameters."""
+        self.lookback_period = params.get('lookback_period', 20)
+        self.significance_threshold = params.get('significance_threshold', 0.05)
+    
+    def generate(self, returns: pd.Series, **context) -> pd.Series:
+        """
+        Generate trading signals based on strategy logic.
+        
+        Args:
+            returns: Price return series
+            **context: Additional market data
+            
+        Returns:
+            pd.Series: Trading signals (-1, 0, 1)
+        """
+        # Implementation details
+        pass
+```
+
+### Documentation Standards
+- Clear mathematical foundations in docstrings
+- Comprehensive parameter documentation
+- Usage examples with expected outputs
+- Performance characteristics and limitations
+- References to academic literature when applicable
+
+### Testing Standards
+```python
+class TestMyNewStrategySignal:
+    """Test suite for MyNewStrategySignal."""
+    
+    def test_no_nan_output(self):
+        """Ensure strategy produces no NaN values."""
+        pass
+    
+    def test_signal_range(self):
+        """Verify signals are in valid range."""
+        pass
+    
+    def test_monte_carlo_dsr(self):
+        """Test statistical significance with synthetic data."""
+        pass
+```
+
+## Review Process
+
+### Code Review Checklist
+- [ ] Mathematical foundation is clearly documented
+- [ ] Implementation follows framework conventions
+- [ ] All tests pass with adequate coverage
+- [ ] Strategy demonstrates statistical significance
+- [ ] Code is well-documented and readable
+- [ ] Configuration is properly structured
+- [ ] No hardcoded values or magic numbers
+
+### Performance Review
+- [ ] DSR ≥ 0.95 on out-of-sample data
+- [ ] Strategy shows orthogonality to existing strategies
+- [ ] Reasonable transaction costs are considered
+- [ ] Risk management is properly implemented
+- [ ] Performance is robust across different market conditions
+
+## Community Guidelines
+
+### Collaboration Standards
+- Respectful and constructive feedback
+- Focus on mathematical rigor and statistical significance
+- Share knowledge and help other contributors
+- Follow academic standards for research and validation
+- Maintain open-source principles and transparency
+
+### Communication
+- Use GitHub issues for technical questions
+- GitHub Discussions for methodology and research topics
+- Provide detailed descriptions for pull requests
+- Include performance metrics and validation results
+- Reference relevant academic literature when applicable
+
+## Getting Help
+
+### Resources
+- Framework documentation in `docs/` directory
+- Example strategies in `src/strategies/` for reference
+- Test examples for validation patterns
+- Configuration templates for parameter setup
+
+### Support Channels
+- **GitHub Issues:** Technical questions and bug reports
+- **GitHub Discussions:** Research methodology and strategy concepts
+- **Code Review:** Detailed feedback on implementations
+- **Documentation:** Comprehensive guides and examples
+
+## Quality Assurance
+
+### Continuous Integration
+All contributions are automatically tested through:
+- Automated code quality checks
+- Comprehensive test suite execution
+- Statistical validation of strategy performance
+- Documentation building and validation
+- Security and dependency scanning
+
+### Manual Review
+Experienced contributors review:
+- Mathematical foundations and derivations
+- Implementation correctness and efficiency
+- Test coverage and validation approaches
+- Documentation quality and completeness
+- Overall contribution fit with framework goals
+
+This process ensures all contributions maintain the high standards required for quantitative trading strategy development and deployment.
     
     Implements the framework from docs/pdf/strategy_name.pdf
     """

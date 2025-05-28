@@ -1,104 +1,107 @@
-# Strategy Guide: Mathematical Foundations
+# Strategy Guide
 
-This guide provides the mathematical foundation for each of the 12 orthogonal trading edges in Crypto-Strategy-Lab.
+This guide provides the mathematical foundation and implementation details for each of the 12 orthogonal trading strategies in the Crypto Strategy Lab framework.
 
-## 1. Lag-k Autocorrelation Momentum/Reversal Filter
+## 1. Lag-k Autocorrelation Strategy
 
-**Equation:**## Implementation Notes
-
-- Each strategy lives in either `src/strategies/<n>/signal.py` or `src/strategies/<n>/strategy.py`
-- Configuration in `config/strategies/<n>.yaml`
-- Mathematical proofs in `docs/pdf/<n>.pdf`
-- Unit tests in `src/strategies/<n>/test_signal.py`
-- Hyperparameter optimization via `src/pipelines/hyperopt.py`
-
-## Framework Extension
-
-The Crypto-Strategy-Lab is designed to be extensible beyond the 12 orthogonal trading edges implemented. The framework provides:
-
-1. **Strategy Registry**: All strategies automatically register with the framework through module imports
-2. **Common Interface**: Each strategy implements a standard interface for signal generation
-3. **Validation Gates**: New strategies must pass statistical significance tests
-4. **Hyperparameter Optimization**: Framework supports automated parameter tuning
-5. **Composition Layer**: Strategies can be combined using weighted ensembles
-
-### Adding New Strategies
-
-To implement a new strategy:
-
-1. Use `scripts/new_strategy.py` to generate the boilerplate
-2. Implement the signal generation logic in `signal.py` or `strategy.py`
-3. Create tests that validate statistical properties
-4. Document the mathematical foundation in STRATEGY_GUIDE.md
-5. Submit a pull request with comprehensive documentation
-
-### Strategy Quality Standards
-
-All strategies must meet these requirements:
-
-1. **Statistical Significance**: DSR ≥ 0.95 across multiple tests
-2. **Orthogonality**: Low correlation with existing strategies
-3. **Implementation Quality**: Clean code with comprehensive tests
-4. **Documentation**: Complete mathematical foundations
-5. **Parameter Robustness**: Stable performance across parameter rangesΣ(r_t - r̄)(r_{t-k} - r̄) / Σ(r_t - r̄)²
+**Mathematical Foundation:**
+```
+ρ(k) = Σ(r_t - r̄)(r_{t-k} - r̄) / Σ(r_t - r̄)²
 ```
 
-**Edge:** Daily crypto returns exhibit statistically significant serial dependence (ρ(1) ≠ 0).
+**Edge:** Daily cryptocurrency returns exhibit statistically significant serial dependence.
 
-**Trade Rule:** Long if ρ(1) > 0 and p-value < 0.05; short/flat if ρ(1) < 0. Require |ρ| > 1.96/√N over a 250-day look-back to clear noise.
-
-**Risk Hooks:** Position size proportional to t-statistic significance.
+**Trade Rule:** Long if ρ(1) > 0 and p-value < 0.05; short if ρ(1) < 0. Require |ρ| > 1.96/√N over 250-day lookback.
 
 **Implementation:** `src/strategies/lag_autocorr/`
 
----
+## 2. Variance-Ratio Strategy
 
-## 2. Variance-Ratio (VR) Drift Detector
+**Mathematical Foundation:** Lo-MacKinlay variance ratio test for random walk hypothesis.
 
+**Edge:** Detect persistence or mean reversion in price series.
 
----
+**Implementation:** `src/strategies/variance_ratio/`
 
-## 3. Hurst-Exponent Regime Gauge
+## 3. Hurst Exponent Strategy
 
+**Mathematical Foundation:** Fractional Brownian motion analysis using R/S statistics.
 
----
+**Edge:** Identify long-term memory in price movements.
 
-## 4. Cramér-Rao Drift-Significance Filter
+**Implementation:** `src/strategies/hurst_exponent/`
 
+## 4. Drift Significance Strategy
 
----
+**Mathematical Foundation:** Cramér-Rao lower bound for drift parameter estimation.
 
-## 5. Power-Spectral Peak Cycle Timer
+**Edge:** Statistical significance testing of drift in price series.
 
+**Implementation:** `src/strategies/drift_significance/`
 
----
+## 5. Spectral Peaks Strategy
 
-## 6. Permutation-Entropy Predictability Index
+**Mathematical Foundation:** Power spectral density analysis for dominant frequencies.
 
+**Edge:** Identify cyclical patterns in price movements.
 
----
+**Implementation:** `src/strategies/spectral_peaks/`
 
-## 7. Volatility-Clustering Regime Switch
+## 6. Permutation Entropy Strategy
 
+**Mathematical Foundation:** Ordinal pattern analysis for predictability measurement.
 
----
+**Edge:** Quantify complexity and predictability in time series.
 
-## 8. Spectral-Entropy Collapse (SBPRF Core)
+**Implementation:** `src/strategies/permutation_entropy/`
 
+## 7. Volatility Clustering Strategy
 
----
+**Mathematical Foundation:** GARCH modeling for volatility persistence.
 
-## 9. Volume-Synchronized Order-Flow Imbalance (VPIN)
+**Edge:** Exploit volatility clustering effects in cryptocurrency markets.
 
+**Implementation:** `src/strategies/volatility_clustering/`
 
----
+## 8. Spectral Entropy Strategy
 
-## 10. Wavelet Energy-Ratio Breakout
+**Mathematical Foundation:** Frequency domain entropy measurement.
 
+**Edge:** Detect regime changes through spectral complexity.
 
----
+**Implementation:** `src/strategies/spectral_entropy/`
 
-## 11. Partial Autocorrelation "Spike" Detector
+## 9. VPIN Strategy
+
+**Mathematical Foundation:** Volume-synchronized Probability of Informed Trading.
+
+**Edge:** Order flow imbalance detection for directional prediction.
+
+**Implementation:** `src/strategies/vpin/`
+
+## 10. Wavelet Energy Strategy
+
+**Mathematical Foundation:** Multi-resolution wavelet analysis.
+
+**Edge:** Breakout detection across multiple time scales.
+
+**Implementation:** `src/strategies/wavelet_energy/`
+
+## 11. PACF Spike Strategy
+
+**Mathematical Foundation:** Partial autocorrelation function analysis.
+
+**Edge:** Autoregressive structure identification.
+
+**Implementation:** `src/strategies/pacf_spike/`
+
+## 12. True Range Divergence Strategy
+
+**Mathematical Foundation:** Price-volatility divergence analysis.
+
+**Edge:** Mean reversion signals from volatility-price disconnects.
+
+**Implementation:** `src/strategies/true_range_divergence/`
 
 
 ---
@@ -135,37 +138,54 @@ All strategies integrate with the core risk framework:
 - Unit tests in `src/strategies/<name>/test_signal.py`
 - Hyperparameter optimization via `src/pipelines/hyperopt.py`
 
+## Implementation Framework
 
----
+### Strategy Structure
+Each strategy follows a consistent implementation pattern:
+- Main logic in `src/strategies/<strategy_name>/signal.py`
+- Configuration in `config/strategies/<strategy_name>.yaml`
+- Unit tests in `src/strategies/<strategy_name>/test_signal.py`
+- Mathematical proofs in `docs/pdf/<strategy_name>.pdf`
 
+### Quality Standards
+All strategies must meet these requirements:
+1. **Statistical Significance:** DSR ≥ 0.95 across multiple validation tests
+2. **Orthogonality:** Low correlation with existing strategies
+3. **Implementation Quality:** Clean code with comprehensive test coverage
+4. **Documentation:** Complete mathematical foundations and trade rules
+5. **Parameter Robustness:** Stable performance across parameter ranges
 
+### Framework Extension
+The framework supports adding new strategies through:
+- Strategy registry with automatic detection
+- Common interface for signal generation
+- Statistical validation gates
+- Hyperparameter optimization support
+- Ensemble composition capabilities
 
+### Adding New Strategies
+1. Use `scripts/new_strategy.py` to generate boilerplate code
+2. Implement signal generation logic following the standard interface
+3. Create comprehensive tests validating statistical properties
+4. Document mathematical foundation and trade rules
+5. Submit pull request with complete implementation and documentation
 
----
+### Development Workflow
+```bash
+# Generate new strategy scaffold
+python scripts/new_strategy.py my_strategy_name
 
+# Implement strategy logic
+# Edit src/strategies/my_strategy_name/signal.py
 
+# Test implementation
+pytest src/strategies/my_strategy_name/test_signal.py -v
 
+# Validate statistical significance
+python scripts/validate_strategy.py my_strategy_name
 
----
-
-
-
-
----
-
-
-
-
----
-
-
-
-
----
-
-
-
-
----
+# Run hyperparameter optimization
+python scripts/run_hyperopt.py my_strategy_name
+```
 
 
