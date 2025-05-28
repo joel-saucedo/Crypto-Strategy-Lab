@@ -21,7 +21,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from strategies.pacf_spike.strategy import PACFSpikeDetectorSignal
+from strategies.pacf_spike.signal import PACFSpikeDetectorSignal
 
 
 class TestPACFSpikeDetectorSignal:

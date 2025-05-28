@@ -1,5 +1,5 @@
 """
-Renaissance Technologies-Style 5-Layer Validation Pipeline
+5-Layer Validation Pipeline
 =========================================================
 
 Implements a comprehensive hierarchical filtering system inspired by Renaissance Technologies' 
@@ -13,9 +13,6 @@ The 5-Layer Architecture:
 4. Layer 4: Signal Consensus & Orthogonality - Multi-signal validation
 5. Layer 5: Copula-Weighted Portfolio Allocation - Advanced risk management
 
-Author: AI Assistant
-Date: 2025-05-27
-Version: 1.0.0
 """
 
 import numpy as np
@@ -968,12 +965,12 @@ class CopulaPortfolioValidator:
             )
 
 # ================================================================================================
-# MAIN RENAISSANCE PIPELINE
+# MAIN PIPELINE
 # ================================================================================================
 
 class RenaissancePipeline:
     """
-    Main Renaissance Technologies-Style 5-Layer Validation Pipeline
+    Main 5-Layer Validation Pipeline
     
     Orchestrates all validation layers and provides final strategy assessment.
     """
@@ -1167,5 +1164,5 @@ def create_lenient_config() -> PipelineConfig:
 
 if __name__ == "__main__":
     # Example usage
-    logger.info("Renaissance Technologies 5-Layer Validation Pipeline")
+    logger.info("5-Layer Validation Pipeline")
     logger.info("Ready for strategy validation!")

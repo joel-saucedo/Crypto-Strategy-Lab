@@ -21,7 +21,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from strategies.true_range_divergence.strategy import TrueRangeDivergenceSignal
+from strategies.true_range_divergence.signal import TrueRangeDivergenceSignal
 
 
 class TestTrueRangeDivergenceSignal:
@@ -81,7 +81,7 @@ class TestTrueRangeDivergenceSignal:
         prices = 100 * np.exp(np.cumsum(returns))
         
         # Create OHLCV data with realistic spreads and gaps
-        data = pd.DataFrame(index=pd.date_range('2022-01-01', periods=n_points, freq='H'))
+        data = pd.DataFrame(index=pd.date_range('2022-01-01', periods=n_points, freq='h'))
         
         # Create gaps occasionally (5% chance)
         gap_mask = np.random.random(n_points) < 0.05
@@ -346,7 +346,7 @@ class TestTrueRangeDivergenceSignal:
             'low': [99.99] * 100,
             'close': [100] * 100,
             'volume': [1000] * 100
-        }, index=pd.date_range('2022-01-01', periods=100, freq='H'))
+        }, index=pd.date_range('2022-01-01', periods=100, freq='h'))
         
         constant_signals = self.strategy.generate(constant_data)
         assert (constant_signals == 0).all(), "Should return zero signals for constant prices"
@@ -409,7 +409,7 @@ class TestTrueRangeDivergenceSignal:
             
             # Create realistic OHLCV data
             prices = 100 * np.exp(np.cumsum(returns))
-            data = pd.DataFrame(index=pd.date_range('2022-01-01', periods=len(prices), freq='H'))
+            data = pd.DataFrame(index=pd.date_range('2022-01-01', periods=len(prices), freq='h'))
             
             for i in range(len(prices)):
                 base_price = prices[i]
