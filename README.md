@@ -65,7 +65,7 @@ Crypto-Strategy-Lab/
 └─ .github/workflows/                 # CI: lint → tests → build PDFs → DSR audit
 ```
 
-## The 12 Orthogonal Trading Edges
+## The Orthogonal Trading Edges
 
 1. **Lag-k Autocorrelation** - Serial dependence momentum/reversal
 2. **Variance-Ratio** - Drift vs noise detection
