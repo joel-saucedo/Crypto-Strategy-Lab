@@ -6,6 +6,13 @@ Validates the implementation against mathematical expectations.
 import pytest
 import numpy as np
 import pandas as pd
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 from src.strategies.lag_autocorr.signal import LagAutocorrSignal
 
 class TestLagAutocorrSignal:
