@@ -1,40 +1,33 @@
 """
-Unified Backtesting Engine - Consolidates all scattered backtesting functionality
-into a single, coherent system with comprehensive Monte Carlo validation.
-
-Combines features from:
-- /src/core/backtest.py (blueprint enforcement)
-- /src/backtesting/enhanced_backtester.py (multi-strategy support)
-- /src/backtesting/portfolio_manager.py (position management)
-- Existing Monte Carlo DSR validation from strategy tests
-
-Key Features:
-- Single unified interface for all backtesting
-- Multi-strategy, multi-asset support
-- Comprehensive Monte Carlo statistical validation
-- 5-layer validation pipeline
-- DSR ≥ 0.95 and PSR ≥ 0.95 enforcement
-- Bootstrap, permutation, and reality check tests
-- No placeholders - production ready
+Unified Backtesting Engine - Comprehensive backtesting framework with advanced validation,
+multi-strategy orchestration, and sophisticated position sizing capabilities.
 """
 
-import numpy as np
 import pandas as pd
-import numba
-from numba import jit, prange
-from typing import Dict, List, Any, Tuple, Optional, Union, Callable
-from dataclasses import dataclass, field
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from datetime import datetime, timedelta
-import asyncio
-import logging
-import yaml
-from pathlib import Path
-from scipy import stats
-from scipy.stats import jarque_bera
+from typing import Dict, List, Optional, Any, Union, Callable, Tuple
 import warnings
-warnings.filterwarnings('ignore')
+import logging
+from pathlib import Path
+import asyncio
+import concurrent.futures
+from dataclasses import dataclass, field
+import json
+from enum import Enum
+from abc import ABC, abstractmethod
+from scipy import stats
+from numba import jit, prange
 
+# Set up logging
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# CONFIGURATION AND DATA STRUCTURES
+# Unified configuration, position, and trade representations
+# ============================================================================
 
 @dataclass
 class BacktestConfig:
@@ -117,6 +110,380 @@ class Trade:
     def is_winner(self) -> bool:
         """Check if trade was profitable."""
         return self.pnl > 0
+
+# ============================================================================
+# POSITION SIZING STRATEGIES
+# Comprehensive position sizing framework with multiple algorithms
+# ============================================================================
+
+class PositionSizingType(Enum):
+    """Available position sizing methods."""
+    FIXED_FRACTIONAL = "fixed_fractional"
+    KELLY_CRITERION = "kelly_criterion"
+    VOLATILITY_TARGETING = "volatility_targeting"
+    REGIME_AWARE = "regime_aware"
+    BAYESIAN_OPTIMAL = "bayesian_optimal"
+
+@dataclass
+class PositionSizingConfig:
+    """Configuration for position sizing strategies."""
+    method: PositionSizingType = PositionSizingType.FIXED_FRACTIONAL
+    
+    # Fixed Fractional
+    fixed_fraction: float = 0.02
+    
+    # Kelly Criterion
+    kelly_lookback: int = 252
+    kelly_fraction: float = 0.25  # Fractional Kelly
+    kelly_min: float = 0.01
+    kelly_max: float = 0.10
+    
+    # Volatility Targeting
+    target_volatility: float = 0.15
+    vol_lookback: int = 21
+    vol_adjustment_factor: float = 1.0
+    
+    # Regime Aware
+    regime_lookback: int = 63
+    high_vol_multiplier: float = 0.5
+    low_vol_multiplier: float = 1.5
+    crisis_multiplier: float = 0.25
+    
+    # Bayesian/RL
+    learning_rate: float = 0.01
+    exploration_factor: float = 0.05
+    memory_decay: float = 0.95
+
+class PositionSizingEngine:
+    """
+    Comprehensive position sizing engine supporting multiple strategies.
+    """
+    
+    def __init__(self, config: PositionSizingConfig = None):
+        self.config = config or PositionSizingConfig()
+        
+        # Historical tracking for adaptive methods
+        self.trade_history: List[Dict] = []
+        self.market_regimes: List[str] = []
+        self.volatility_history: List[float] = []
+        
+        # Bayesian learning components
+        self.success_rates: Dict[str, float] = {}
+        self.risk_estimates: Dict[str, float] = {}
+        
+    def calculate_position_size(self, 
+                              signal_strength: float,
+                              current_price: float,
+                              portfolio_value: float,
+                              symbol: str,
+                              market_data: pd.DataFrame = None,
+                              strategy_id: str = None) -> float:
+        """
+        Calculate optimal position size based on configured method.
+        
+        Args:
+            signal_strength: Strategy signal strength (-1 to 1)
+            current_price: Current asset price
+            portfolio_value: Current portfolio value
+            symbol: Asset symbol
+            market_data: Historical market data for calculations
+            strategy_id: Strategy identifier for tracking
+            
+        Returns:
+            Position size (positive for long, negative for short)
+        """
+        
+        if abs(signal_strength) < 1e-6:
+            return 0.0
+        
+        # Calculate base position size
+        if self.config.method == PositionSizingType.FIXED_FRACTIONAL:
+            base_size = self._fixed_fractional_sizing(portfolio_value, current_price)
+            
+        elif self.config.method == PositionSizingType.KELLY_CRITERION:
+            base_size = self._kelly_criterion_sizing(
+                portfolio_value, current_price, market_data, symbol
+            )
+            
+        elif self.config.method == PositionSizingType.VOLATILITY_TARGETING:
+            base_size = self._volatility_targeting_sizing(
+                portfolio_value, current_price, market_data
+            )
+            
+        elif self.config.method == PositionSizingType.REGIME_AWARE:
+            base_size = self._regime_aware_sizing(
+                portfolio_value, current_price, market_data
+            )
+            
+        elif self.config.method == PositionSizingType.BAYESIAN_OPTIMAL:
+            base_size = self._bayesian_optimal_sizing(
+                portfolio_value, current_price, signal_strength, strategy_id, symbol
+            )
+            
+        else:
+            base_size = self._fixed_fractional_sizing(portfolio_value, current_price)
+        
+        # Apply signal strength scaling
+        scaled_size = base_size * abs(signal_strength)
+        
+        # Apply signal direction
+        return scaled_size if signal_strength > 0 else -scaled_size
+    
+    def _fixed_fractional_sizing(self, portfolio_value: float, current_price: float) -> float:
+        """Simple fixed fractional position sizing."""
+        position_value = portfolio_value * self.config.fixed_fraction
+        return position_value / current_price
+    
+    def _kelly_criterion_sizing(self, 
+                               portfolio_value: float, 
+                               current_price: float,
+                               market_data: pd.DataFrame,
+                               symbol: str) -> float:
+        """Kelly Criterion position sizing based on historical performance."""
+        
+        if market_data is None or len(market_data) < self.config.kelly_lookback:
+            return self._fixed_fractional_sizing(portfolio_value, current_price)
+        
+        try:
+            # Calculate historical returns
+            returns = market_data['close'].pct_change().dropna()
+            recent_returns = returns.tail(self.config.kelly_lookback)
+            
+            if len(recent_returns) < 50:  # Minimum data requirement
+                return self._fixed_fractional_sizing(portfolio_value, current_price)
+            
+            # Kelly calculation: f = (bp - q) / b
+            # where b = odds, p = prob of win, q = prob of loss
+            winning_returns = recent_returns[recent_returns > 0]
+            losing_returns = recent_returns[recent_returns < 0]
+            
+            if len(winning_returns) == 0 or len(losing_returns) == 0:
+                return self._fixed_fractional_sizing(portfolio_value, current_price)
+            
+            # Probabilities
+            p_win = len(winning_returns) / len(recent_returns)
+            p_loss = 1 - p_win
+            
+            # Average returns
+            avg_win = winning_returns.mean()
+            avg_loss = abs(losing_returns.mean())
+            
+            # Kelly fraction
+            if avg_loss > 0:
+                kelly_f = (p_win * avg_win - p_loss * avg_loss) / avg_win
+            else:
+                kelly_f = 0
+            
+            # Apply fractional Kelly and bounds
+            kelly_f = kelly_f * self.config.kelly_fraction
+            kelly_f = np.clip(kelly_f, self.config.kelly_min, self.config.kelly_max)
+            
+            position_value = portfolio_value * kelly_f
+            return position_value / current_price
+            
+        except Exception as e:
+            logger.warning(f"Kelly calculation failed for {symbol}: {e}")
+            return self._fixed_fractional_sizing(portfolio_value, current_price)
+    
+    def _volatility_targeting_sizing(self, 
+                                   portfolio_value: float,
+                                   current_price: float,
+                                   market_data: pd.DataFrame) -> float:
+        """Volatility targeting position sizing."""
+        
+        if market_data is None or len(market_data) < self.config.vol_lookback:
+            return self._fixed_fractional_sizing(portfolio_value, current_price)
+        
+        try:
+            # Calculate recent volatility
+            returns = market_data['close'].pct_change().dropna()
+            recent_vol = returns.tail(self.config.vol_lookback).std() * np.sqrt(252)
+            
+            if recent_vol <= 0:
+                return self._fixed_fractional_sizing(portfolio_value, current_price)
+            
+            # Scale position inversely with volatility
+            vol_scalar = (self.config.target_volatility / recent_vol) * self.config.vol_adjustment_factor
+            vol_scalar = np.clip(vol_scalar, 0.1, 3.0)  # Reasonable bounds
+            
+            base_fraction = self.config.fixed_fraction * vol_scalar
+            position_value = portfolio_value * base_fraction
+            
+            return position_value / current_price
+            
+        except Exception as e:
+            logger.warning(f"Volatility targeting failed: {e}")
+            return self._fixed_fractional_sizing(portfolio_value, current_price)
+    
+    def _regime_aware_sizing(self,
+                           portfolio_value: float,
+                           current_price: float,
+                           market_data: pd.DataFrame) -> float:
+        """Regime-aware position sizing that adapts to market conditions."""
+        
+        if market_data is None or len(market_data) < self.config.regime_lookback:
+            return self._fixed_fractional_sizing(portfolio_value, current_price)
+        
+        try:
+            # Detect current market regime
+            returns = market_data['close'].pct_change().dropna()
+            recent_returns = returns.tail(self.config.regime_lookback)
+            
+            # Volatility regime
+            recent_vol = recent_returns.std() * np.sqrt(252)
+            historical_vol = returns.std() * np.sqrt(252)
+            
+            # Trend regime
+            prices = market_data['close'].tail(self.config.regime_lookback)
+            trend_strength = (prices.iloc[-1] - prices.iloc[0]) / prices.iloc[0]
+            
+            # Crisis detection (large drawdowns)
+            rolling_max = prices.rolling(21).max()
+            drawdown = (prices - rolling_max) / rolling_max
+            max_recent_dd = drawdown.min()
+            
+            # Determine regime multiplier
+            multiplier = 1.0
+            
+            # Volatility adjustment
+            if recent_vol > historical_vol * 1.5:
+                multiplier *= self.config.high_vol_multiplier
+            elif recent_vol < historical_vol * 0.7:
+                multiplier *= self.config.low_vol_multiplier
+            
+            # Crisis adjustment
+            if max_recent_dd < -0.15:  # 15% drawdown
+                multiplier *= self.config.crisis_multiplier
+            
+            # Trend adjustment
+            if abs(trend_strength) > 0.2:  # Strong trend
+                multiplier *= 1.2
+            
+            # Apply regime adjustment
+            adjusted_fraction = self.config.fixed_fraction * multiplier
+            adjusted_fraction = np.clip(adjusted_fraction, 0.005, 0.20)  # Safety bounds
+            
+            position_value = portfolio_value * adjusted_fraction
+            return position_value / current_price
+            
+        except Exception as e:
+            logger.warning(f"Regime-aware sizing failed: {e}")
+            return self._fixed_fractional_sizing(portfolio_value, current_price)
+    
+    def _bayesian_optimal_sizing(self,
+                               portfolio_value: float,
+                               current_price: float,
+                               signal_strength: float,
+                               strategy_id: str,
+                               symbol: str) -> float:
+        """Bayesian optimal position sizing with reinforcement learning."""
+        
+        strategy_key = f"{strategy_id}_{symbol}"
+        
+        # Initialize if new strategy-symbol combination
+        if strategy_key not in self.success_rates:
+            self.success_rates[strategy_key] = 0.5  # Neutral prior
+            self.risk_estimates[strategy_key] = 0.02  # Conservative start
+        
+        # Get current estimates
+        success_rate = self.success_rates[strategy_key]
+        risk_estimate = self.risk_estimates[strategy_key]
+        
+        # Bayesian position sizing: consider both success rate and risk
+        # Thompson Sampling approach for exploration-exploitation
+        
+        # Sample from Beta distribution for success rate
+        alpha = success_rate * 100 + 1  # Prior strength
+        beta = (1 - success_rate) * 100 + 1
+        sampled_success_rate = np.random.beta(alpha, beta)
+        
+        # Exploration factor
+        exploration_bonus = self.config.exploration_factor * np.random.normal(0, 1)
+        
+        # Calculate optimal fraction
+        optimal_fraction = (
+            sampled_success_rate * abs(signal_strength) * 
+            (1 - risk_estimate) + exploration_bonus
+        )
+        
+        # Bounds checking
+        optimal_fraction = np.clip(optimal_fraction, 0.005, 0.15)
+        
+        position_value = portfolio_value * optimal_fraction
+        return position_value / current_price
+    
+    def update_performance(self, 
+                         strategy_id: str,
+                         symbol: str,
+                         signal_strength: float,
+                         pnl: float,
+                         position_size: float):
+        """Update performance tracking for adaptive sizing methods."""
+        
+        strategy_key = f"{strategy_id}_{symbol}"
+        
+        # Record trade
+        trade_record = {
+            'strategy_key': strategy_key,
+            'signal_strength': signal_strength,
+            'pnl': pnl,
+            'position_size': position_size,
+            'timestamp': datetime.now(),
+            'success': pnl > 0
+        }
+        
+        self.trade_history.append(trade_record)
+        
+        # Update Bayesian estimates
+        if strategy_key in self.success_rates:
+            # Update success rate using exponential moving average
+            new_success = 1.0 if pnl > 0 else 0.0
+            self.success_rates[strategy_key] = (
+                self.config.memory_decay * self.success_rates[strategy_key] +
+                (1 - self.config.memory_decay) * new_success
+            )
+            
+            # Update risk estimate based on actual vs expected performance
+            expected_pnl = abs(signal_strength) * position_size * 0.001  # Rough estimate
+            risk_factor = abs(pnl - expected_pnl) / max(abs(expected_pnl), 1e-6)
+            
+            self.risk_estimates[strategy_key] = (
+                self.config.memory_decay * self.risk_estimates[strategy_key] +
+                (1 - self.config.memory_decay) * risk_factor
+            )
+        
+        # Cleanup old records (keep last 1000)
+        if len(self.trade_history) > 1000:
+            self.trade_history = self.trade_history[-1000:]
+    
+    def get_sizing_summary(self) -> Dict[str, Any]:
+        """Get summary of position sizing performance."""
+        if not self.trade_history:
+            return {'status': 'No trades recorded'}
+        
+        recent_trades = self.trade_history[-100:]  # Last 100 trades
+        
+        total_trades = len(recent_trades)
+        winning_trades = sum(1 for trade in recent_trades if trade['success'])
+        
+        avg_pnl = np.mean([trade['pnl'] for trade in recent_trades])
+        avg_position_size = np.mean([abs(trade['position_size']) for trade in recent_trades])
+        
+        return {
+            'method': self.config.method.value,
+            'total_recent_trades': total_trades,
+            'win_rate': winning_trades / total_trades if total_trades > 0 else 0,
+            'average_pnl': avg_pnl,
+            'average_position_size': avg_position_size,
+            'success_rates': dict(self.success_rates),
+            'risk_estimates': dict(self.risk_estimates),
+            'active_strategies': len(self.success_rates)
+        }
+
+# ============================================================================
+# PORTFOLIO MANAGEMENT
+# Unified portfolio management for handling positions, trades, and risk controls
+# ============================================================================
 
 class PortfolioManager:
     """
@@ -407,22 +774,34 @@ def _block_bootstrap_numba(returns: np.ndarray, block_size: int, n_samples: int)
     n_obs = len(returns)
     n_blocks = (n_samples + block_size - 1) // block_size
     
+    # Pre-generate all blocks in parallel
+    blocks = np.zeros((n_blocks, block_size))
+    
+    for i in prange(n_blocks):
+        # Random starting position for each block
+        start_idx = np.random.randint(0, max(1, n_obs - block_size + 1))
+        end_idx = min(start_idx + block_size, n_obs)
+        
+        # Fill the block
+        for j in range(block_size):
+            if start_idx + j < end_idx:
+                blocks[i, j] = returns[start_idx + j]
+            else:
+                # If block is shorter than block_size, repeat the last value
+                blocks[i, j] = returns[end_idx - 1] if end_idx > start_idx else 0.0
+    
+    # Concatenate blocks sequentially to avoid race conditions
     result = np.zeros(n_samples)
     pos = 0
     
-    for _ in prange(n_blocks):
-        if pos >= n_samples:
+    for i in range(n_blocks):
+        remaining = n_samples - pos
+        if remaining <= 0:
             break
             
-        # Random starting position for block
-        start_idx = np.random.randint(0, max(1, n_obs - block_size + 1))
-        end_idx = min(start_idx + block_size, n_obs)
-        block_len = end_idx - start_idx
-        
-        # Copy block to result
-        copy_len = min(block_len, n_samples - pos)
-        for i in range(copy_len):
-            result[pos + i] = returns[start_idx + i]
+        copy_len = min(block_size, remaining)
+        for j in range(copy_len):
+            result[pos + j] = blocks[i, j]
         
         pos += copy_len
     
@@ -1508,49 +1887,134 @@ class MonteCarloValidator:
         return summary
 
 # ============================================================================
-# UNIFIED BACKTESTING ENGINE
-# Main engine that consolidates all functionality
+# MULTI-STRATEGY ORCHESTRATION ENGINE
+# Enhanced backtesting with multiple strategies and portfolio-level management
 # ============================================================================
 
-class UnifiedBacktestEngine:
-    """
-    The main unified backtesting engine that consolidates all scattered functionality.
+class BacktestResult:
+    """Results from a backtest run with comprehensive analytics."""
     
-    Features:
-    - Multi-strategy, multi-asset backtesting
-    - Comprehensive Monte Carlo validation
-    - Renaissance Technologies-style 5-layer validation
-    - DSR ≥ 0.95 and PSR ≥ 0.95 enforcement
-    - Production-ready with no placeholders
+    def __init__(self, 
+                 portfolio_manager: PortfolioManager, 
+                 strategies: Dict[str, Any] = None,
+                 benchmark_data: pd.DataFrame = None,
+                 validation_results: Dict[str, Any] = None):
+        self.portfolio_manager = portfolio_manager
+        self.strategies = strategies or {}
+        self.benchmark_data = benchmark_data
+        self.validation_results = validation_results or {}
+        
+        # Calculate comprehensive metrics
+        self.metrics = portfolio_manager.get_performance_metrics()
+        self.trades = portfolio_manager.closed_trades
+        self.portfolio_history = pd.DataFrame(portfolio_manager.portfolio_history) if portfolio_manager.portfolio_history else pd.DataFrame()
+        
+    def get_strategy_breakdown(self) -> Dict[str, Dict]:
+        """Get performance breakdown by strategy."""
+        if not self.trades:
+            return {}
+        
+        strategy_stats = {}
+        
+        for strategy_id in set(trade.strategy_id for trade in self.trades):
+            strategy_trades = [t for t in self.trades if t.strategy_id == strategy_id]
+            
+            if strategy_trades:
+                trade_data = pd.DataFrame([{
+                    'pnl': trade.pnl,
+                    'pnl_pct': trade.pnl_pct,
+                    'symbol': trade.symbol,
+                    'size': trade.size
+                } for trade in strategy_trades])
+                
+                winning_trades = trade_data[trade_data['pnl'] > 0]
+                losing_trades = trade_data[trade_data['pnl'] < 0]
+                
+                strategy_stats[strategy_id] = {
+                    'total_trades': len(strategy_trades),
+                    'winning_trades': len(winning_trades),
+                    'losing_trades': len(losing_trades),
+                    'win_rate': len(winning_trades) / len(strategy_trades) * 100 if strategy_trades else 0,
+                    'total_pnl': trade_data['pnl'].sum(),
+                    'avg_win': winning_trades['pnl'].mean() if len(winning_trades) > 0 else 0,
+                    'avg_loss': losing_trades['pnl'].mean() if len(losing_trades) > 0 else 0,
+                    'profit_factor': abs(winning_trades['pnl'].sum() / losing_trades['pnl'].sum()) if len(losing_trades) > 0 else float('inf'),
+                    'symbols_traded': trade_data['symbol'].nunique()
+                }
+        
+        return strategy_stats
+    
+    def get_symbol_breakdown(self) -> Dict[str, Dict]:
+        """Get performance breakdown by symbol."""
+        if not self.trades:
+            return {}
+        
+        symbol_stats = {}
+        
+        for symbol in set(trade.symbol for trade in self.trades):
+            symbol_trades = [t for t in self.trades if t.symbol == symbol]
+            
+            if symbol_trades:
+                trade_data = pd.DataFrame([{
+                    'pnl': trade.pnl,
+                    'pnl_pct': trade.pnl_pct,
+                    'strategy_id': trade.strategy_id
+                } for trade in symbol_trades])
+                
+                symbol_stats[symbol] = {
+                    'total_trades': len(symbol_trades),
+                    'total_pnl': trade_data['pnl'].sum(),
+                    'strategies_used': trade_data['strategy_id'].nunique(),
+                    'avg_pnl_per_trade': trade_data['pnl'].mean(),
+                    'best_strategy': trade_data.groupby('strategy_id')['pnl'].sum().idxmax() if len(trade_data) > 0 else None
+                }
+        
+        return symbol_stats
+
+class MultiStrategyOrchestrator:
+    """
+    Enhanced backtesting orchestrator supporting multiple strategies simultaneously.
+    Consolidates functionality from enhanced_backtester.py into the unified framework.
     """
     
-    def __init__(self, config: BacktestConfig = None):
-        """Initialize the unified engine."""
-        self.config = config or BacktestConfig()
+    def __init__(self, data_manager=None):
+        """
+        Initialize the multi-strategy orchestrator.
+        
+        Args:
+            data_manager: Data manager instance for fetching market data
+        """
+        # Import data manager dynamically to avoid circular imports
+        if data_manager is None:
+            try:
+                from ..data.data_manager import DataManager
+                self.data_manager = DataManager()
+            except ImportError:
+                logger.warning("DataManager not available, will need external data source")
+                self.data_manager = None
+        else:
+            self.data_manager = data_manager
+            
         self.strategies: Dict[str, Any] = {}
         self.strategy_symbols: Dict[str, List[str]] = {}
-        self.validator = MonteCarloValidator(
-            min_dsr=self.config.min_dsr,
-            min_psr=self.config.min_psr
-        )
+        self.strategy_configs: Dict[str, Dict] = {}
         
-        # Performance tracking
-        self.backtest_results: Dict[str, Any] = {}
-        self.portfolio_manager: Optional[PortfolioManager] = None
-        
-        logger.info("Unified Backtesting Engine initialized")
-    
-    def add_strategy(self, strategy: Any, symbols: List[str], strategy_id: str = None) -> str:
+    def add_strategy(self, 
+                    strategy: Any, 
+                    symbols: List[str], 
+                    strategy_id: str = None,
+                    config: Dict[str, Any] = None) -> str:
         """
-        Add a strategy to the backtesting engine.
+        Add a strategy to the orchestrator.
         
         Args:
             strategy: Strategy instance with generate_signal method
-            symbols: List of symbols this strategy trades
-            strategy_id: Unique identifier for the strategy
+            symbols: List of symbols this strategy will trade
+            strategy_id: Unique identifier (auto-generated if None)
+            config: Strategy-specific configuration
             
         Returns:
-            str: Final strategy ID assigned
+            The final strategy_id used
         """
         if strategy_id is None:
             strategy_id = strategy.__class__.__name__
@@ -1562,351 +2026,328 @@ class UnifiedBacktestEngine:
             strategy_id = f"{original_id}_{counter}"
             counter += 1
         
-        # Validate strategy has required methods
-        if not hasattr(strategy, 'generate_signal'):
-            raise ValueError(f"Strategy {strategy_id} must have generate_signal method")
-        
         self.strategies[strategy_id] = strategy
         self.strategy_symbols[strategy_id] = symbols
+        self.strategy_configs[strategy_id] = config or {}
         
         logger.info(f"Added strategy '{strategy_id}' for symbols: {symbols}")
         return strategy_id
     
-    def run_backtest(self, data: pd.DataFrame, validate: bool = True) -> Dict[str, Any]:
+    async def run_backtest(self, 
+                          config: BacktestConfig,
+                          data: pd.DataFrame = None,
+                          validate: bool = True) -> BacktestResult:
         """
-        Run unified backtest with optional comprehensive validation.
+        Run multi-strategy backtest with comprehensive orchestration.
         
         Args:
-            data: OHLCV data with datetime index
-            validate: Whether to run comprehensive Monte Carlo validation
+            config: Backtest configuration
+            data: Pre-loaded market data (optional)
+            validate: Whether to run validation
             
         Returns:
-            Dict containing all backtest results and validation
+            BacktestResult with comprehensive analytics
         """
-        logger.info(f"Starting unified backtest for {len(self.strategies)} strategies")
+        logger.info(f"Starting multi-strategy backtest with {len(self.strategies)} strategies")
         
-        if len(self.strategies) == 0:
-            raise ValueError("No strategies added to engine")
+        # Prepare data
+        if data is None:
+            if self.data_manager is None:
+                raise ValueError("No data provided and no data manager available")
+            data = await self._fetch_market_data(config)
         
         # Initialize portfolio manager
-        self.portfolio_manager = PortfolioManager(
-            initial_capital=self.config.initial_capital,
-            commission_rate=self.config.fees['taker']
+        portfolio = PortfolioManager(
+            initial_capital=config.initial_capital,
+            commission_rate=config.fees.get('taker', 0.001)
         )
-        self.portfolio_manager.max_position_size = self.config.max_position_size
-        self.portfolio_manager.max_total_exposure = self.config.max_total_exposure
+        portfolio.max_position_size = config.max_position_size
+        portfolio.max_total_exposure = config.max_total_exposure
         
-        # Run backtest simulation
-        strategy_signals = self._run_backtest_simulation(data)
+        # Initialize position sizing engine
+        position_sizing_config = PositionSizingConfig(
+            method=getattr(config, 'position_sizing_method', PositionSizingType.FIXED_FRACTIONAL),
+            fixed_fraction=config.max_position_size,
+            target_volatility=getattr(config, 'target_volatility', 0.15),
+            memory_decay=getattr(config, 'memory_decay', 0.95)
+        )
+        position_sizer = PositionSizingEngine(position_sizing_config)
         
-        # Calculate portfolio performance
-        portfolio_metrics = self.portfolio_manager.get_performance_metrics()
+        # Prepare strategy-specific data
+        strategy_data = {}
+        for strategy_id, symbols in self.strategy_symbols.items():
+            strategy_data[strategy_id] = self._prepare_strategy_data(data, symbols)
         
-        # Prepare results
-        results = {
-            'config': self._serialize_config(),
-            'portfolio_metrics': portfolio_metrics,
-            'strategy_signals': strategy_signals,
-            'trades': [self._serialize_trade(trade) for trade in self.portfolio_manager.closed_trades],
-            'equity_curve': self.portfolio_manager.portfolio_history,
-            'final_positions': {k: self._serialize_position(v) for k, v in self.portfolio_manager.positions.items()}
-        }
+        # Run simulation
+        await self._run_multi_strategy_simulation(
+            data, strategy_data, portfolio, position_sizer, config
+        )
         
-        # Run comprehensive validation if requested
-        if validate and self.portfolio_manager._daily_returns:
-            returns_series = pd.Series(self.portfolio_manager._daily_returns)
-            validation_results = self.validator.validate_strategy_comprehensive(
-                returns_series, 
-                n_trials=self.config.monte_carlo_trials
+        # Run validation if requested
+        validation_results = None
+        if validate and portfolio.closed_trades:
+            # Calculate portfolio returns for validation
+            portfolio_returns = self._calculate_portfolio_returns(portfolio.portfolio_history)
+            
+            # Run comprehensive validation
+            validator = MonteCarloValidator(
+                min_dsr=config.min_dsr,
+                min_psr=config.min_psr
             )
-            results['validation'] = validation_results
-            results['validation_passed'] = validation_results.get('validation_passed', False)
-            
-            logger.info(f"Validation result: {'PASS' if results['validation_passed'] else 'FAIL'}")
-        else:
-            results['validation_passed'] = None
-            logger.info("Validation skipped")
+            validation_results = validator.validate_strategy_with_advanced_layers(
+                portfolio_returns, 
+                config.monte_carlo_trials
+            )
         
-        self.backtest_results = results
-        return results
+        # Create comprehensive result
+        result = BacktestResult(
+            portfolio_manager=portfolio,
+            strategies=dict(self.strategies),
+            benchmark_data=self._extract_benchmark_data(data, config),
+            validation_results=validation_results
+        )
+        
+        logger.info(f"Multi-strategy backtest completed. Final value: ${result.metrics.get('final_portfolio_value', 0):,.2f}")
+        
+        return result
     
-    def _run_backtest_simulation(self, data: pd.DataFrame) -> Dict[str, List]:
-        """Run the core backtest simulation."""
-        logger.info(f"Running simulation over {len(data)} periods")
+    async def _fetch_market_data(self, config: BacktestConfig) -> pd.DataFrame:
+        """Fetch market data for all required symbols."""
+        # Collect all unique symbols
+        all_symbols = set()
+        for symbols in self.strategy_symbols.values():
+            all_symbols.update(symbols)
+        all_symbols = list(all_symbols)
         
-        strategy_signals = {strategy_id: [] for strategy_id in self.strategies.keys()}
+        logger.info(f"Fetching data for {len(all_symbols)} symbols")
         
-        # Iterate through time
-        for i, (timestamp, row) in enumerate(data.iterrows()):
-            
-            # Get current prices (handle both OHLCV and simple price data)
-            if 'close' in data.columns:
-                current_prices = {'default': row['close']}
-            else:
-                current_prices = {col: row[col] for col in data.columns if not pd.isna(row[col])}
-            
-            # Update portfolio history
-            self.portfolio_manager.update_portfolio_history(timestamp, current_prices)
-            
-            # Generate signals for each strategy
-            for strategy_id, strategy in self.strategies.items():
-                symbols = self.strategy_symbols[strategy_id]
+        return await self.data_manager.fetch_data(
+            symbols=all_symbols,
+            start_date=config.start_date,
+            end_date=config.end_date,
+            timeframe=getattr(config, 'timeframe', '1h')
+        )
+    
+    def _prepare_strategy_data(self, full_data: pd.DataFrame, symbols: List[str]) -> pd.DataFrame:
+        """Prepare data subset for a specific strategy."""
+        if isinstance(full_data.columns, pd.MultiIndex):
+            # Multi-level columns (e.g., OHLCV data)
+            strategy_columns = []
+            for symbol in symbols:
+                symbol_columns = [col for col in full_data.columns if len(col) > 1 and col[1] == symbol]
+                strategy_columns.extend(symbol_columns)
+            return full_data[strategy_columns].copy() if strategy_columns else pd.DataFrame()
+        else:
+            # Simple column structure
+            available_symbols = [col for col in symbols if col in full_data.columns]
+            return full_data[available_symbols].copy() if available_symbols else pd.DataFrame()
+    
+    async def _run_multi_strategy_simulation(self,
+                                           data: pd.DataFrame,
+                                           strategy_data: Dict[str, pd.DataFrame],
+                                           portfolio: PortfolioManager,
+                                           position_sizer: PositionSizingEngine,
+                                           config: BacktestConfig):
+        """Run the multi-strategy simulation loop."""
+        timestamps = data.index
+        total_periods = len(timestamps)
+        
+        logger.info(f"Running simulation over {total_periods} time periods")
+        
+        for i, timestamp in enumerate(timestamps):
+            try:
+                # Extract current prices
+                current_prices = self._extract_current_prices(data, i)
                 
-                # Get data up to current point
-                current_data = data.iloc[:i+1]
-                
-                if len(current_data) < 2:
+                if not current_prices:
                     continue
                 
-                # Generate signals for each symbol
-                for symbol in symbols:
-                    try:
-                        # For single symbol case, use the data directly
-                        if symbol == 'default' or len(symbols) == 1:
-                            symbol_data = current_data.copy()
-                        else:
-                            # Handle multi-symbol data
-                            if symbol in current_data.columns:
-                                symbol_data = current_data[[symbol]].copy()
-                                symbol_data.columns = ['close']
-                            else:
-                                continue
-                        
-                        # Generate signal
-                        signal = strategy.generate_signal(symbol_data)
-                        
-                        # Record signal
-                        strategy_signals[strategy_id].append({
-                            'timestamp': timestamp,
-                            'symbol': symbol,
-                            'signal': float(signal)
-                        })
-                        
-                        # Execute signal if non-zero
-                        if abs(signal) > 1e-6:
-                            symbol_key = symbol if symbol in current_prices else 'default'
-                            if symbol_key in current_prices:
-                                self._execute_signal(
-                                    strategy_id, symbol, signal, 
-                                    current_prices[symbol_key], timestamp, current_prices
-                                )
+                # Update portfolio history
+                portfolio.update_portfolio_history(timestamp, current_prices)
+                
+                # Process each strategy
+                for strategy_id, strategy in self.strategies.items():
+                    symbols = self.strategy_symbols[strategy_id]
+                    strategy_df = strategy_data.get(strategy_id, pd.DataFrame())
                     
-                    except Exception as e:
-                        logger.warning(f"Error in {strategy_id}/{symbol} at {timestamp}: {e}")
+                    if strategy_df.empty:
                         continue
-            
-            # Progress logging
-            if i % max(1, len(data) // 10) == 0:
-                progress = (i / len(data)) * 100
-                portfolio_value = self.portfolio_manager.get_portfolio_value(current_prices)
-                logger.info(f"Progress: {progress:.1f}% - Portfolio: ${portfolio_value:,.2f}")
-        
-        # Close all positions at the end
-        if data.index.size > 0:
-            final_timestamp = data.index[-1]
-            final_row = data.iloc[-1]
-            
-            if 'close' in data.columns:
-                final_prices = {'default': final_row['close']}
-            else:
-                final_prices = {col: final_row[col] for col in data.columns if not pd.isna(final_row[col])}
-            
-            self.portfolio_manager.close_all_positions(final_prices, final_timestamp)
-        
-        return strategy_signals
-    
-    def _execute_signal(self, strategy_id: str, symbol: str, signal: float, 
-                       price: float, timestamp: datetime, current_prices: Dict[str, float]):
-        """Execute a trading signal with risk management."""
-        
-        # Calculate position size based on signal strength
-        portfolio_value = self.portfolio_manager.get_portfolio_value(current_prices)
-        max_position_value = portfolio_value * self.config.max_position_size
-        
-        # Signal-based position sizing
-        target_value = abs(signal) * max_position_value
-        position_size = target_value / price
-        
-        # Apply signal direction
-        if signal < 0:
-            if not self.config.enable_short_selling:
-                return  # Skip short signals if disabled
-            position_size = -position_size
-        
-        # Execute the position
-        success = self.portfolio_manager.open_position(
-            symbol=symbol,
-            strategy_id=strategy_id,
-            size=position_size,
-            price=price,
-            timestamp=timestamp,
-            current_prices=current_prices,
-            metadata={'signal_strength': signal}
-        )
-        
-        if not success:
-            logger.debug(f"Position rejected: {strategy_id}/{symbol} signal={signal:.3f}")
-    
-    def get_strategy_breakdown(self) -> Dict[str, Dict]:
-        """Get performance breakdown by strategy."""
-        if not self.portfolio_manager or not self.portfolio_manager.closed_trades:
-            return {}
-        
-        strategy_stats = {}
-        
-        for strategy_id in self.strategies.keys():
-            strategy_trades = [t for t in self.portfolio_manager.closed_trades 
-                             if t.strategy_id == strategy_id]
-            
-            if strategy_trades:
-                winning_trades = [t for t in strategy_trades if t.pnl > 0]
-                losing_trades = [t for t in strategy_trades if t.pnl <= 0]
+                    
+                    # Get historical data up to current point
+                    current_data = strategy_df.iloc[:i+1] if i+1 <= len(strategy_df) else strategy_df
+                    
+                    if len(current_data) < 2:  # Need minimum data for signals
+                        continue
+                    
+                    # Generate signals for each symbol
+                    for symbol in symbols:
+                        if symbol not in current_prices:
+                            continue
+                        
+                        try:
+                            # Extract symbol-specific data
+                            symbol_data = self._extract_symbol_data(current_data, symbol)
+                            
+                            if symbol_data.empty or len(symbol_data) < 2:
+                                continue
+                            
+                            # Generate trading signal
+                            signal = strategy.generate_signal(symbol_data)
+                            
+                            if signal != 0:  # Non-zero signal
+                                self._execute_strategy_signal(
+                                    portfolio, position_sizer, strategy_id, symbol,
+                                    signal, current_prices[symbol], timestamp, config
+                                )
+                        
+                        except Exception as e:
+                            logger.warning(f"Error processing {strategy_id}/{symbol} at {timestamp}: {e}")
+                            continue
                 
-                total_pnl = sum(t.pnl for t in strategy_trades)
-                total_return = sum(t.pnl_pct for t in strategy_trades)
+                # Progress logging
+                if i % max(1, total_periods // 20) == 0:
+                    progress = (i / total_periods) * 100
+                    portfolio_value = portfolio.get_portfolio_value(current_prices)
+                    logger.info(f"Progress: {progress:.1f}% - Portfolio: ${portfolio_value:,.2f}")
+            
+            except Exception as e:
+                logger.error(f"Error at timestamp {timestamp}: {e}")
+                continue
+        
+        # Close all remaining positions
+        final_prices = self._extract_current_prices(data, -1)
+        if final_prices:
+            portfolio.close_all_positions(final_prices, timestamps[-1])
+    
+    def _extract_current_prices(self, data: pd.DataFrame, index: int) -> Dict[str, float]:
+        """Extract current prices for all symbols at given index."""
+        current_prices = {}
+        
+        if isinstance(data.columns, pd.MultiIndex):
+            # Multi-level columns
+            for col in data.columns:
+                if len(col) > 1 and col[0] == 'close':
+                    symbol = col[1]
+                    price = data.iloc[index][col]
+                    if not pd.isna(price):
+                        current_prices[symbol] = float(price)
+        else:
+            # Simple columns - assume they are price data
+            for col in data.columns:
+                price = data.iloc[index][col]
+                if not pd.isna(price):
+                    current_prices[col] = float(price)
+        
+        return current_prices
+    
+    def _extract_symbol_data(self, data: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        """Extract OHLCV data for a specific symbol."""
+        if isinstance(data.columns, pd.MultiIndex):
+            # Multi-level columns - extract OHLCV for symbol
+            symbol_columns = [col for col in data.columns if len(col) > 1 and col[1] == symbol]
+            if symbol_columns:
+                symbol_data = data[symbol_columns].copy()
+                # Flatten column names (remove symbol level)
+                symbol_data.columns = [col[0] for col in symbol_data.columns]
+                return symbol_data
+        else:
+            # Simple structure - return the symbol column as 'close'
+            if symbol in data.columns:
+                symbol_data = pd.DataFrame()
+                symbol_data['close'] = data[symbol]
+                return symbol_data
+        
+        return pd.DataFrame()
+    
+    def _execute_strategy_signal(self,
+                               portfolio: PortfolioManager,
+                               position_sizer: PositionSizingEngine,
+                               strategy_id: str,
+                               symbol: str,
+                               signal: float,
+                               price: float,
+                               timestamp: datetime,
+                               config: BacktestConfig):
+        """Execute a trading signal with position sizing."""
+        try:
+            # Calculate position size using the position sizing engine
+            portfolio_value = portfolio.get_portfolio_value({symbol: price})
+            
+            position_size = position_sizer.calculate_position_size(
+                signal_strength=abs(signal),
+                portfolio_value=portfolio_value,
+                current_price=price,
+                strategy_id=strategy_id,
+                symbol=symbol,
+                market_data=None  # Would need historical data for advanced sizing
+            )
+            
+            # Apply signal direction
+            if signal < 0:
+                if not config.enable_short_selling:
+                    return  # Skip short signals if disabled
+                position_size = -position_size
+            
+            # Check if we should close existing position first
+            position_key = f"{strategy_id}_{symbol}"
+            if position_key in portfolio.positions:
+                existing_position = portfolio.positions[position_key]
+                # Close if signal direction changed
+                if (existing_position.size > 0 and signal < 0) or (existing_position.size < 0 and signal > 0):
+                    portfolio.close_position(position_key, price, timestamp)
+            
+            # Open new position if size is significant
+            if abs(position_size) > 1e-6:  # Minimum position size threshold
+                success = portfolio.open_position(
+                    symbol=symbol,
+                    strategy_id=strategy_id,
+                    size=position_size,
+                    price=price,
+                    timestamp=timestamp,
+                    metadata={'signal_strength': signal, 'position_sizing_method': position_sizer.config.method.value}
+                )
                 
-                strategy_stats[strategy_id] = {
-                    'total_trades': len(strategy_trades),
-                    'winning_trades': len(winning_trades),
-                    'losing_trades': len(losing_trades),
-                    'win_rate': len(winning_trades) / len(strategy_trades) * 100,
-                    'total_pnl': total_pnl,
-                    'total_return_pct': total_return * 100,
-                    'avg_win': np.mean([t.pnl for t in winning_trades]) if winning_trades else 0,
-                    'avg_loss': np.mean([t.pnl for t in losing_trades]) if losing_trades else 0,
-                    'profit_factor': (sum(t.pnl for t in winning_trades) / 
-                                    abs(sum(t.pnl for t in losing_trades))) if losing_trades else float('inf'),
-                    'symbols_traded': list(set(t.symbol for t in strategy_trades))
-                }
-
-
-
-        return strategy_stats
+                if success:
+                    # Update position sizing engine performance tracking
+                    # (PnL will be updated when position is closed)
+                    pass
+        
+        except Exception as e:
+            logger.warning(f"Failed to execute signal for {strategy_id}/{symbol}: {e}")
     
-    def _serialize_config(self) -> Dict[str, Any]:
-        """Serialize config for JSON compatibility."""
-        return {
-            'initial_capital': self.config.initial_capital,
-            'max_position_size': self.config.max_position_size,
-            'max_total_exposure': self.config.max_total_exposure,
-            'fees': self.config.fees,
-            'slippage': self.config.slippage,
-            'monte_carlo_trials': self.config.monte_carlo_trials,
-            'min_dsr': self.config.min_dsr,
-            'min_psr': self.config.min_psr
-        }
+    def _calculate_portfolio_returns(self, portfolio_history: List[Dict]) -> pd.Series:
+        """Calculate portfolio returns from history."""
+        if not portfolio_history or len(portfolio_history) < 2:
+            return pd.Series()
+        
+        df = pd.DataFrame(portfolio_history)
+        returns = df['portfolio_value'].pct_change().dropna()
+        
+        # Set index to timestamps if available
+        if 'timestamp' in df.columns:
+            returns.index = pd.to_datetime(df['timestamp'].iloc[1:])
+        
+        return returns
     
-    def _serialize_trade(self, trade: Trade) -> Dict[str, Any]:
-        """Serialize trade for JSON compatibility."""
-        # Handle both datetime and non-datetime timestamps
-        def serialize_time(time_obj):
-            if hasattr(time_obj, 'isoformat'):
-                return time_obj.isoformat()
-            else:
-                return str(time_obj)
+    def _extract_benchmark_data(self, data: pd.DataFrame, config: BacktestConfig) -> Optional[pd.DataFrame]:
+        """Extract benchmark data if specified."""
+        benchmark_symbol = getattr(config, 'benchmark_symbol', None)
         
-        return {
-            'symbol': trade.symbol,
-            'strategy_id': trade.strategy_id,
-            'entry_time': serialize_time(trade.entry_time),
-            'exit_time': serialize_time(trade.exit_time),
-            'entry_price': trade.entry_price,
-            'exit_price': trade.exit_price,
-            'size': trade.size,
-            'position_type': trade.position_type,
-            'pnl': trade.pnl,
-            'pnl_pct': trade.pnl_pct,
-            'commission': trade.commission,
-            'duration_hours': trade.duration.total_seconds() / 3600 if hasattr(trade.duration, 'total_seconds') else 0,
-            'is_winner': trade.is_winner
-        }
-    
-    def _serialize_position(self, position: Position) -> Dict[str, Any]:
-        """Serialize position for JSON compatibility."""
-        # Handle both datetime and non-datetime timestamps
-        def serialize_time(time_obj):
-            if hasattr(time_obj, 'isoformat'):
-                return time_obj.isoformat()
-            else:
-                return str(time_obj)
+        if benchmark_symbol is None:
+            return None
         
-        return {
-            'symbol': position.symbol,
-            'strategy_id': position.strategy_id,
-            'size': position.size,
-            'entry_price': position.entry_price,
-            'entry_time': serialize_time(position.entry_time),
-            'position_type': position.position_type,
-            'market_value': position.market_value
-        }
-    
-    def create_validation_report(self) -> str:
-        """Create a comprehensive validation report."""
-        if not self.backtest_results or 'validation' not in self.backtest_results:
-            return "No validation results available. Run backtest with validate=True."
+        if isinstance(data.columns, pd.MultiIndex):
+            # Look for benchmark in multi-level columns
+            benchmark_cols = [col for col in data.columns if len(col) > 1 and col[1] == benchmark_symbol and col[0] == 'close']
+            if benchmark_cols:
+                return data[benchmark_cols[0]].dropna()
+        else:
+            # Simple column structure
+            if benchmark_symbol in data.columns:
+                return data[benchmark_symbol].dropna()
         
-        validation = self.backtest_results['validation']
-        summary = validation.get('validation_summary', {})
-        
-        report = f"""
-=== UNIFIED BACKTESTING VALIDATION REPORT ===
+        return None
 
-Overall Result: {summary.get('overall_result', 'UNKNOWN')}
-Pass Rate: {summary.get('pass_rate', 'N/A')}
 
-CRITICAL METRICS:
-"""
-        for metric, value in summary.get('critical_metrics', {}).items():
-            report += f"  {metric}: {value}\n"
-        
-        report += "\nVALIDATION CHECKS:\n"
-        for check_name, passed in validation.get('validation_checks', []):
-            status = "✓ PASS" if passed else "✗ FAIL"
-            report += f"  {status} {check_name}\n"
-        
-        if summary.get('warnings'):
-            report += "\nWARNINGS:\n"
-            for warning in summary['warnings']:
-                report += f"  ⚠ {warning}\n"
-        
-        if summary.get('recommendations'):
-            report += "\nRECOMMENDATIONS:\n"
-            for rec in summary['recommendations']:
-                report += f"  → {rec}\n"
-        
-        # Add Monte Carlo results
-        if 'monte_carlo_simulation' in validation:
-            mc = validation['monte_carlo_simulation']
-            report += f"\nMONTE CARLO ANALYSIS ({mc['n_simulations']} simulations):\n"
-            report += f"  Observed Sharpe: {mc['observed_sharpe']:.3f}\n"
-            report += f"  Sharpe Percentile: {mc['percentile_ranks']['sharpe_percentile']:.1f}%\n"
-            report += f"  Return Percentile: {mc['percentile_ranks']['return_percentile']:.1f}%\n"
-        
-        report += "\n" + "="*50 + "\n"
-        
-        return report
-
-def create_default_config() -> BacktestConfig:
-    """
-    Create a default BacktestConfig with sensible defaults for unified backtesting.
-    
-    Returns:
-        BacktestConfig: Default configuration suitable for most strategies
-    """
-    return BacktestConfig(
-        initial_capital=100000.0,
-        max_position_size=0.1,  # 10% max position
-        max_total_exposure=0.8,  # 80% max total exposure
-        fees={
-            'maker': 0.0001,  # 0.01% maker fee
-            'taker': 0.001,   # 0.1% taker fee
-        },
-        slippage={
-            'market_order': 0.0005,  # 0.05% market order slippage
-            'limit_order': 0.0001,   # 0.01% limit order slippage
-        },
-        enable_short_selling=True,
-        monte_carlo_trials=10000,
-        min_dsr=0.95,
-        min_psr=0.95
-    )
+# Backward compatibility alias
+BacktestEngine = MultiStrategyOrchestrator

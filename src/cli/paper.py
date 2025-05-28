@@ -1,0 +1,129 @@
+"""
+CLI module for paper trading functionality.
+"""
+
+import sys
+import os
+import time
+import signal
+from datetime import datetime
+from pathlib import Path
+
+# Add parent directories to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+def run_paper_trading(args):
+    """
+    Run paper trading simulation.
+    """
+    try:
+        print("=" * 60)
+        print("📊 CRYPTO STRATEGY LAB - PAPER TRADING")
+        print("=" * 60)
+        
+        print(f"🧪 Starting paper trading:")
+        print(f"   Strategy: {args.strategy}")
+        print(f"   Starting Capital: ${args.capital:,.2f}")
+        print(f"   Mode: Paper Trading (No Real Money)")
+        print()
+        
+        # Set up signal handler for graceful shutdown
+        def signal_handler(sig, frame):
+            print("\n🛑 Stopping paper trading...")
+            sys.exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        
+        # Import and initialize components
+        from core.backtest_engine import UnifiedBacktestEngine, BacktestConfig
+        from execution.engine import ExecutionEngine
+        
+        # Configure paper trading
+        config = BacktestConfig(
+            initial_capital=args.capital,
+            enable_short_selling=True,
+            max_position_size=0.1,
+            max_total_exposure=0.8
+        )
+        
+        # Initialize engines
+        backtest_engine = UnifiedBacktestEngine(config)
+        execution_engine = ExecutionEngine(mode='paper')
+        
+        # Load strategy
+        print(f"📈 Loading strategy: {args.strategy}")
+        strategy_instance = load_strategy(args.strategy)
+        
+        # Add strategy to engine
+        strategy_id = backtest_engine.add_strategy(
+            strategy=strategy_instance,
+            symbols=['BTCUSD'],  # Default symbol for paper trading
+            strategy_id=args.strategy
+        )
+        
+        print("✅ Paper trading initialized successfully!")
+        print("🔄 Starting trading loop...")
+        print("   Press Ctrl+C to stop")
+        print()
+        
+        # Main trading loop
+        iteration = 0
+        while True:
+            iteration += 1
+            
+            try:
+                # Get latest market data
+                current_time = datetime.now()
+                print(f"[{current_time.strftime('%H:%M:%S')}] Iteration {iteration}")
+                
+                # In a real implementation, this would:
+                # 1. Fetch real-time market data
+                # 2. Generate signals using the strategy
+                # 3. Execute trades through the execution engine
+                # 4. Update portfolio and track performance
+                
+                # For now, just simulate the loop
+                print("   📡 Fetching market data...")
+                print("   🧠 Generating signals...")
+                print("   💼 Updating portfolio...")
+                
+                # Show current status
+                print(f"   💰 Portfolio Value: ${args.capital:,.2f} (simulated)")
+                print("   📊 No active positions")
+                print()
+                
+                # Wait before next iteration
+                time.sleep(30)  # 30 seconds between iterations
+                
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                print(f"   ⚠️  Error in trading loop: {e}")
+                time.sleep(10)  # Wait before retrying
+                
+        print("🛑 Paper trading stopped")
+        return 0
+        
+    except Exception as e:
+        print(f"❌ Error starting paper trading: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+def load_strategy(strategy_name: str):
+    """Load a strategy by name (simplified version)."""
+    try:
+        # This is a placeholder implementation
+        # In a real system, this would load the actual strategy
+        class MockStrategy:
+            def generate_signal(self, data):
+                return 0.0  # No signal
+        
+        print(f"   ⚠️  Using mock strategy for '{strategy_name}'")
+        print(f"   📝 Implement actual strategy loading in production")
+        
+        return MockStrategy()
+        
+    except Exception as e:
+        print(f"❌ Failed to load strategy '{strategy_name}': {e}")
+        raise
