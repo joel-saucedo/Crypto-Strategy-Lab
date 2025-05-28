@@ -11,12 +11,6 @@ Physics & Mathematics, Georgia College & State University
 - Quantitative finance and algorithmic trading focus
 - Statistical trading system development
 
-### Expertise
-- Statistical signal processing
-- Time series analysis
-- Risk management frameworks
-- Systematic trading strategies
-- Academic research methodology
 
 ## Contributors
 
