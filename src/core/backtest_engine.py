@@ -22,7 +22,7 @@ from scipy import stats
 
 # Import consolidated utilities to replace duplicates
 try:
-    from ..utils.consolidation_utils import (
+    from utils.consolidation_utils import (
         calculate_sharpe_ratio_optimized,
         calculate_max_drawdown_optimized,
         calculate_comprehensive_metrics
@@ -737,7 +737,7 @@ class PortfolioManager:
         max_drawdown, _, _ = calculate_max_drawdown_optimized(np.array(portfolio_values))
         
         # Calmar ratio with consolidated utility import
-        from ..utils.consolidation_utils import calculate_calmar_ratio_optimized
+        from utils.consolidation_utils import calculate_calmar_ratio_optimized
         calmar_ratio = calculate_calmar_ratio_optimized(annualized_return, max_drawdown)
         
         # Trade statistics

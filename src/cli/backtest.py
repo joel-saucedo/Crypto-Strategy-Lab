@@ -14,14 +14,14 @@ import asyncio
 # Add parent directories to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.core.backtest_engine import (
+from core.backtest_engine import (
     MultiStrategyOrchestrator as BacktestEngine, 
     BacktestConfig, 
     PositionSizingConfig,
     PositionSizingType
 )
-from src.data.data_manager import DataManager
-from src.strategies.base_strategy import BaseStrategy
+from data.data_manager import DataManager
+from strategies.base_strategy import BaseStrategy
 
 async def run_backtest(args):
     """
@@ -126,23 +126,65 @@ async def run_backtest(args):
 def load_strategy(strategy_name: str):
     """Load a strategy by name."""
     try:
-        # Try to import the strategy
-        strategy_module = __import__(f'strategies.{strategy_name}', fromlist=[strategy_name])
+        # First try to import from strategy subdirectory
+        try:
+            strategy_module = __import__(f'strategies.{strategy_name}.signal', fromlist=['signal'])
+        except ImportError:
+            # Fallback: try importing directly from strategies module
+            strategy_module = __import__(f'strategies.{strategy_name}', fromlist=[strategy_name])
         
-        # Look for strategy class
+        # Look for strategy class with various naming conventions
         strategy_class = None
-        for attr_name in dir(strategy_module):
-            attr = getattr(strategy_module, attr_name)
-            if (isinstance(attr, type) and 
-                issubclass(attr, BaseStrategy) and 
-                attr != BaseStrategy):
-                strategy_class = attr
-                break
+        possible_class_names = [
+            f"{''.join(word.capitalize() for word in strategy_name.split('_'))}Signal",
+            f"{strategy_name.title().replace('_', '')}Signal", 
+            f"{strategy_name.upper()}Signal",
+            f"{''.join(word.capitalize() for word in strategy_name.split('_'))}Strategy",
+            f"{strategy_name.title().replace('_', '')}Strategy",
+            "Signal",
+            "Strategy"
+        ]
+        
+        # First try the expected class names
+        for class_name in possible_class_names:
+            if hasattr(strategy_module, class_name):
+                strategy_class = getattr(strategy_module, class_name)
+                if isinstance(strategy_class, type):
+                    break
+        
+        # If not found, search all attributes for classes
+        if strategy_class is None:
+            for attr_name in dir(strategy_module):
+                attr = getattr(strategy_module, attr_name)
+                if (isinstance(attr, type) and 
+                    attr_name.endswith(('Signal', 'Strategy')) and
+                    not attr_name.startswith('_')):
+                    strategy_class = attr
+                    break
         
         if strategy_class is None:
             raise ImportError(f"No strategy class found in {strategy_name}")
         
-        return strategy_class()
+        # Create a wrapper class that inherits from BaseStrategy
+        class StrategyWrapper(BaseStrategy):
+            def __init__(self):
+                super().__init__(strategy_name)
+                self.strategy_instance = strategy_class()
+                
+            def generate_signal(self, data: pd.DataFrame) -> float:
+                if hasattr(self.strategy_instance, 'generate_signal'):
+                    return self.strategy_instance.generate_signal(data)
+                elif hasattr(self.strategy_instance, 'generate_signals'):
+                    signals = self.strategy_instance.generate_signals(data)
+                    # Return the last signal if it's a series
+                    if hasattr(signals, 'iloc'):
+                        return signals.iloc[-1] if len(signals) > 0 else 0.0
+                    return signals
+                else:
+                    # Default: assume it's a signal function
+                    return 0.0
+        
+        return StrategyWrapper()
         
     except ImportError as e:
         print(f"❌ Failed to load strategy '{strategy_name}': {e}")
@@ -163,7 +205,9 @@ def load_market_data(symbol: str, start_date: datetime, end_date: datetime) -> p
             
             # Filter by date range
             mask = (data.index >= start_date) & (data.index <= end_date)
-            return data[mask]
+            filtered_data = data[mask]
+            if not filtered_data.empty:
+                return filtered_data
         
         # Fallback to raw data
         raw_data_path = Path(f"data/raw/{symbol}_daily_ohlcv.csv")
@@ -173,20 +217,57 @@ def load_market_data(symbol: str, start_date: datetime, end_date: datetime) -> p
             
             # Filter by date range
             mask = (data.index >= start_date) & (data.index <= end_date)
-            return data[mask]
+            filtered_data = data[mask]
+            if not filtered_data.empty:
+                return filtered_data
         
-        # Try data manager as last resort
-        print("   Attempting to fetch data using DataManager...")
-        data_manager = DataManager()
-        data = data_manager.get_data(symbol, start_date, end_date)
-        
-        return data
+        # Generate synthetic data for testing if no real data available
+        print(f"   Generating synthetic data for {symbol} from {start_date.date()} to {end_date.date()}")
+        return generate_synthetic_data(symbol, start_date, end_date)
         
     except Exception as e:
-        print(f"   Warning: Error loading data: {e}")
-        # Return sample data for testing
-        print("   Generating sample data for testing...")
-        return generate_sample_data(start_date, end_date)
+        print(f"   Error loading data: {e}")
+        print(f"   Generating synthetic data for testing...")
+        return generate_synthetic_data(symbol, start_date, end_date)
+
+def generate_synthetic_data(symbol: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+    """Generate synthetic OHLCV data for testing."""
+    # Create date range
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    
+    # Generate realistic price data with random walk
+    np.random.seed(42)  # For reproducible results
+    initial_price = 50000 if 'BTC' in symbol else 3000  # Different starting prices
+    returns = np.random.normal(0.001, 0.02, len(dates))  # Daily returns
+    
+    # Calculate prices using cumulative returns
+    prices = initial_price * np.exp(np.cumsum(returns))
+    
+    # Generate OHLCV data
+    data = pd.DataFrame(index=dates)
+    
+    # Close prices
+    data['close'] = prices
+    
+    # Open prices (previous close + small gap)
+    data['open'] = data['close'].shift(1).fillna(initial_price) * (1 + np.random.normal(0, 0.001, len(dates)))
+    
+    # High and Low prices
+    daily_volatility = np.random.uniform(0.01, 0.05, len(dates))
+    data['high'] = np.maximum(data['open'], data['close']) * (1 + daily_volatility/2)
+    data['low'] = np.minimum(data['open'], data['close']) * (1 - daily_volatility/2)
+    
+    # Volume (correlated with volatility)
+    base_volume = 1000000 if 'BTC' in symbol else 10000000
+    data['volume'] = base_volume * (1 + daily_volatility) * np.random.uniform(0.5, 2.0, len(dates))
+    
+    # Ensure proper ordering
+    data = data[['open', 'high', 'low', 'close', 'volume']]
+    
+    print(f"   Generated {len(data)} synthetic data points")
+    print(f"   Price range: ${data['low'].min():.2f} - ${data['high'].max():.2f}")
+    
+    return data
 
 def generate_sample_data(start_date: datetime, end_date: datetime) -> pd.DataFrame:
     """Generate sample OHLCV data for testing."""

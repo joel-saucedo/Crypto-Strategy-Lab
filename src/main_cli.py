@@ -79,6 +79,7 @@ Examples:
     live_parser.add_argument('--capital', type=float, required=True, help='Trading capital')
     live_parser.add_argument('--symbols', nargs='+', default=['BTCUSD'], help='Symbols to trade')
     live_parser.add_argument('--dry-run', action='store_true', help='Dry run mode')
+    live_parser.add_argument('--confirm', action='store_true', help='Confirm understanding of risks')
     
     # Monitor command
     monitor_parser = subparsers.add_parser('monitor', help='Start monitoring dashboard')

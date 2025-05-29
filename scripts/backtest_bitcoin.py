@@ -15,14 +15,14 @@ import logging
 sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
 try:
-    from backtesting.enhanced_backtester import EnhancedBacktester, BacktestConfig
+    from core.backtest_engine import MultiStrategyOrchestrator as BacktestEngine, BacktestConfig
     from backtesting.portfolio_manager import PortfolioManager
     from strategies.base_strategy import BaseStrategy
     from visualization.backtest_analyzer import BacktestAnalyzer
     from data.data_manager import DataManager
 except ImportError:
     # Handle direct execution
-    from src.backtesting.enhanced_backtester import EnhancedBacktester, BacktestConfig
+    from src.core.backtest_engine import MultiStrategyOrchestrator as BacktestEngine, BacktestConfig
     from src.backtesting.portfolio_manager import PortfolioManager
     from src.strategies.base_strategy import BaseStrategy
     from src.visualization.backtest_analyzer import BacktestAnalyzer
@@ -176,8 +176,8 @@ async def run_bitcoin_backtest():
         # Create a simple data manager for backtesting
         data_manager = DataManager()
         
-        # Initialize backtester
-        backtester = EnhancedBacktester(data_manager)
+        # Initialize unified backtest engine
+        backtest_engine = BacktestEngine()
         
         # Add strategies
         strategies = [
@@ -187,7 +187,7 @@ async def run_bitcoin_backtest():
         ]
         
         for strategy, strategy_id in strategies:
-            backtester.add_strategy(
+            backtest_engine.add_strategy(
                 strategy=strategy,
                 symbols=['BTCUSD'],
                 strategy_id=strategy_id
@@ -210,12 +210,12 @@ async def run_bitcoin_backtest():
         logger.info(f"💰 Initial capital: ${config.initial_capital:,}")
         logger.info(f"💸 Commission rate: {config.commission_rate:.1%}")
         
-        # Override the backtester's data fetching with our pre-loaded data
-        backtester._data_cache = {'BTCUSD': data}
+        # Override the engine's data fetching with our pre-loaded data
+        backtest_engine._data_cache = {'BTCUSD': data}
         
         # Run backtest
         logger.info("\n🔄 Running backtest...")
-        result = await backtester.run_backtest(config)
+        result = await backtest_engine.run_backtest(config)
         
         # Display results
         logger.info("\n📊 Backtest Results")

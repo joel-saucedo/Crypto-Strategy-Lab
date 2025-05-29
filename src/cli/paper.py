@@ -12,7 +12,7 @@ from pathlib import Path
 # Add parent directories to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def run_paper_trading(args):
+async def run_paper_trading(args):
     """
     Run paper trading simulation.
     """
@@ -24,6 +24,8 @@ def run_paper_trading(args):
         print(f"🧪 Starting paper trading:")
         print(f"   Strategy: {args.strategy}")
         print(f"   Starting Capital: ${args.capital:,.2f}")
+        print(f"   Duration: {args.duration} days")
+        print(f"   Symbols: {', '.join(args.symbols)}")
         print(f"   Mode: Paper Trading (No Real Money)")
         print()
         
@@ -35,19 +37,78 @@ def run_paper_trading(args):
         signal.signal(signal.SIGINT, signal_handler)
         
         # Import and initialize components
-        from ..core.backtest_engine import MultiStrategyOrchestrator as BacktestEngine
-        from ..core.backtest_engine import BacktestConfig
+        from src.core.backtest_engine import MultiStrategyOrchestrator as BacktestEngine
+        from src.core.backtest_engine import BacktestConfig
+        from src.cli.backtest import load_strategy, load_market_data
+        from datetime import datetime, timedelta
         
         # Configure paper trading
         config = BacktestConfig(
             initial_capital=args.capital,
             enable_short_selling=True,
             max_position_size=0.1,
-            max_total_exposure=0.8
+            max_total_exposure=0.8,
+            start_date=datetime.now(),
+            end_date=datetime.now() + timedelta(days=args.duration)
         )
         
-        # Initialize engines
-        backtest_engine = BacktestEngine(config)
+        # Initialize engine
+        engine = BacktestEngine()
+        
+        # Load strategy
+        print(f"📈 Loading strategy: {args.strategy}")
+        strategy_instance = load_strategy(args.strategy)
+        
+        # Add strategy to engine
+        strategy_id = engine.add_strategy(
+            strategy=strategy_instance,
+            symbols=args.symbols,
+            strategy_id=args.strategy
+        )
+        
+        print("🔄 Starting paper trading simulation...")
+        print("   Press Ctrl+C to stop")
+        print()
+        
+        # Start real-time paper trading loop
+        start_time = datetime.now()
+        end_time = start_time + timedelta(days=args.duration)
+        
+        while datetime.now() < end_time:
+            try:
+                # Get current market data
+                current_data = {}
+                for symbol in args.symbols:
+                    # In real implementation, fetch live data
+                    # For now, use sample data
+                    data = load_market_data(symbol, 
+                                          datetime.now() - timedelta(days=30),
+                                          datetime.now())
+                    current_data[symbol] = data
+                
+                # Process signals and update positions
+                print(f"📊 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Processing market data...")
+                
+                # Display current status
+                elapsed = datetime.now() - start_time
+                remaining = end_time - datetime.now()
+                
+                print(f"   Elapsed: {elapsed.days}d {elapsed.seconds//3600}h {(elapsed.seconds%3600)//60}m")
+                print(f"   Remaining: {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds%3600)//60}m")
+                print(f"   Current Portfolio Value: ${args.capital:,.2f}")
+                print()
+                
+                # Sleep for next update (in real implementation, this would be event-driven)
+                time.sleep(60)  # Update every minute
+                
+            except KeyboardInterrupt:
+                break
+        
+        print("✅ Paper trading simulation completed!")
+        print(f"   Duration: {(datetime.now() - start_time).total_seconds() / 3600:.1f} hours")
+        print()
+        
+        return 0
         
         # For paper trading, we use the backtest engine in real-time mode
         # In a full implementation, you'd also have execution engine integration

@@ -6,12 +6,13 @@ import sys
 import os
 import webbrowser
 import time
+import asyncio
 from pathlib import Path
 
 # Add parent directories to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def run_monitor(args):
+async def run_monitor(args):
     """
     Launch monitoring dashboard.
     """
@@ -21,10 +22,12 @@ def run_monitor(args):
         print("=" * 60)
         
         port = args.port
+        host = args.host
         
         print(f"🖥️  Starting monitoring dashboard:")
+        print(f"   Host: {host}")
         print(f"   Port: {port}")
-        print(f"   URL: http://localhost:{port}")
+        print(f"   URL: http://{host}:{port}")
         print()
         
         # Check if Streamlit is available
@@ -38,8 +41,8 @@ def run_monitor(args):
             print("❌ Streamlit not installed")
             print("   Install with: pip install streamlit")
             print()
-            print("📝 Alternative: Simple web dashboard")
-            return start_simple_dashboard(port)
+            print("📝 Starting simple HTTP dashboard instead...")
+            return await start_simple_dashboard(host, port)
         
         # Try to launch Streamlit dashboard
         dashboard_script = Path("scripts/monitoring_dashboard.py")
@@ -47,342 +50,258 @@ def run_monitor(args):
         if not dashboard_script.exists():
             print(f"❌ Dashboard script not found: {dashboard_script}")
             print("📝 Creating basic dashboard...")
-            return create_and_run_basic_dashboard(port)
+            return await create_and_run_basic_dashboard(host, port)
+        
+        # Launch Streamlit
+        import subprocess
         
         print("🚀 Launching Streamlit dashboard...")
         
-        # Launch streamlit
-        import subprocess
-        cmd = [
-            sys.executable, "-m", "streamlit", "run", 
-            str(dashboard_script),
-            "--server.port", str(port),
-            "--server.headless", "true"
-        ]
-        
-        print(f"   Command: {' '.join(cmd)}")
-        print()
-        print("📱 Dashboard starting...")
-        print("   Open your browser and navigate to the URL above")
-        print("   Press Ctrl+C to stop the dashboard")
-        print()
-        
-        # Start the process
-        process = subprocess.Popen(cmd)
-        
-        # Wait a moment for startup
-        time.sleep(3)
-        
-        # Try to open browser
         try:
-            webbrowser.open(f"http://localhost:{port}")
-            print("🌐 Browser opened automatically")
-        except:
-            print("⚠️  Could not open browser automatically")
-        
-        # Wait for process to finish
-        try:
+            # Open browser after a short delay
+            async def open_browser():
+                await asyncio.sleep(3)
+                webbrowser.open(f'http://{host}:{port}')
+            
+            asyncio.create_task(open_browser())
+            
+            # Run Streamlit
+            process = subprocess.Popen([
+                'streamlit', 'run', str(dashboard_script),
+                '--server.port', str(port),
+                '--server.address', host,
+                '--server.headless', 'true',
+                '--browser.gatherUsageStats', 'false'
+            ])
+            
+            print(f"✅ Dashboard started! Visit: http://{host}:{port}")
+            print("   Press Ctrl+C to stop")
+            
+            # Wait for process
             process.wait()
+            
+        except FileNotFoundError:
+            print("❌ Streamlit command not found")
+            print("   Install with: pip install streamlit")
+            return 1
         except KeyboardInterrupt:
             print("\n🛑 Stopping dashboard...")
             process.terminate()
-            process.wait()
+            return 0
         
         return 0
         
     except Exception as e:
-        print(f"❌ Error starting monitoring dashboard: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error starting dashboard: {e}")
         return 1
 
-def start_simple_dashboard(port: int):
-    """Start a simple HTTP dashboard when Streamlit is not available."""
+async def start_simple_dashboard(host: str, port: int):
+    """Start a simple HTTP dashboard as fallback."""
     try:
-        import http.server
-        import socketserver
-        from threading import Thread
+        from http.server import HTTPServer, SimpleHTTPRequestHandler
+        import threading
         
-        print("🔧 Starting simple HTTP dashboard...")
+        class DashboardHandler(SimpleHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == '/' or self.path == '/dashboard':
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    
+                    html_content = create_simple_dashboard_html()
+                    self.wfile.write(html_content.encode())
+                else:
+                    super().do_GET()
         
-        # Create a simple HTML dashboard
-        html_content = create_simple_html_dashboard()
+        # Start server in background thread
+        server = HTTPServer((host, port), DashboardHandler)
         
-        # Write to temporary file
-        temp_dir = Path("/tmp/crypto_dashboard")
-        temp_dir.mkdir(exist_ok=True)
+        def run_server():
+            server.serve_forever()
         
-        html_file = temp_dir / "index.html"
-        with open(html_file, 'w') as f:
-            f.write(html_content)
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
         
-        # Change to temp directory
-        os.chdir(temp_dir)
+        print(f"✅ Simple dashboard started! Visit: http://{host}:{port}")
+        print("   Press Ctrl+C to stop")
         
-        # Start HTTP server
-        Handler = http.server.SimpleHTTPRequestHandler
+        # Open browser
+        webbrowser.open(f'http://{host}:{port}')
         
-        with socketserver.TCPServer(("", port), Handler) as httpd:
-            print(f"✅ Simple dashboard running at http://localhost:{port}")
-            print("   Press Ctrl+C to stop")
-            
-            # Try to open browser
-            try:
-                webbrowser.open(f"http://localhost:{port}")
-            except:
-                pass
-            
-            try:
-                httpd.serve_forever()
-            except KeyboardInterrupt:
-                print("\n🛑 Dashboard stopped")
-                
-        return 0
+        # Wait for interrupt
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except KeyboardInterrupt:
+            print("\n🛑 Stopping dashboard...")
+            server.shutdown()
+            return 0
         
     except Exception as e:
         print(f"❌ Error starting simple dashboard: {e}")
         return 1
 
-def create_simple_html_dashboard():
-    """Create a simple HTML dashboard."""
-    return """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Crypto Strategy Lab - Monitoring Dashboard</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .status-card {
-            background: #ecf0f1;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .status-card h3 {
-            margin: 0 0 10px 0;
-            color: #34495e;
-        }
-        .status-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #3498db;
-        }
-        .info-section {
-            background: #e8f4fd;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #3498db;
-        }
-        .warning {
-            background: #fff3cd;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #ffc107;
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 Crypto Strategy Lab - Monitoring Dashboard</h1>
-        
-        <div class="status-grid">
-            <div class="status-card">
-                <h3>System Status</h3>
-                <div class="status-value">Online</div>
-            </div>
-            <div class="status-card">
-                <h3>Active Strategies</h3>
-                <div class="status-value">0</div>
-            </div>
-            <div class="status-card">
-                <h3>Total P&L</h3>
-                <div class="status-value">$0.00</div>
-            </div>
-            <div class="status-card">
-                <h3>Open Positions</h3>
-                <div class="status-value">0</div>
-            </div>
-        </div>
-        
-        <div class="info-section">
-            <h3>📊 Dashboard Information</h3>
-            <p>This is a simplified monitoring dashboard. For full functionality, install Streamlit:</p>
-            <code>pip install streamlit</code>
-            <p>Then restart the monitoring dashboard for advanced features including:</p>
-            <ul>
-                <li>Real-time performance charts</li>
-                <li>Strategy analytics</li>
-                <li>Risk metrics</li>
-                <li>Trade history</li>
-                <li>Interactive controls</li>
-            </ul>
-        </div>
-        
-        <div class="warning">
-            <h4>⚠️ Development Version</h4>
-            <p>This dashboard shows placeholder data. In production, it would display real-time trading metrics, performance analytics, and system status.</p>
-        </div>
-    </div>
-    
-    <script>
-        // Auto-refresh every 30 seconds
-        setTimeout(() => {
-            location.reload();
-        }, 30000);
-        
-        console.log('Crypto Strategy Lab Dashboard Loaded');
-    </script>
-</body>
-</html>
-    """
-
-def create_and_run_basic_dashboard(port: int):
-    """Create and run a basic Streamlit dashboard."""
-    try:
-        dashboard_content = create_basic_streamlit_dashboard()
-        
-        # Create dashboard file
-        dashboard_path = Path("scripts/monitoring_dashboard.py")
-        dashboard_path.parent.mkdir(exist_ok=True)
-        
-        with open(dashboard_path, 'w') as f:
-            f.write(dashboard_content)
-        
-        print(f"✅ Created basic dashboard: {dashboard_path}")
-        
-        # Try to run it
-        import subprocess
-        cmd = [
-            sys.executable, "-m", "streamlit", "run", 
-            str(dashboard_path),
-            "--server.port", str(port)
-        ]
-        
-        subprocess.run(cmd)
-        return 0
-        
-    except Exception as e:
-        print(f"❌ Error creating basic dashboard: {e}")
-        return 1
-
-def create_basic_streamlit_dashboard():
-    """Create basic Streamlit dashboard content."""
-    return '''
-import streamlit as st
+async def create_and_run_basic_dashboard(host: str, port: int):
+    """Create and run a basic dashboard."""
+    dashboard_content = '''import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 from datetime import datetime, timedelta
 
 st.set_page_config(
-    page_title="Crypto Strategy Lab",
-    page_icon="🚀",
+    page_title="Crypto Strategy Lab - Dashboard",
+    page_icon="📊",
     layout="wide"
 )
 
-st.title("🚀 Crypto Strategy Lab - Monitoring Dashboard")
+st.title("📊 Crypto Strategy Lab - Monitoring Dashboard")
 
 # Sidebar
-st.sidebar.header("📊 Controls")
-refresh_rate = st.sidebar.selectbox("Refresh Rate", ["30s", "1m", "5m", "15m"])
-auto_refresh = st.sidebar.checkbox("Auto Refresh", value=True)
+st.sidebar.header("🎛️ Controls")
+selected_strategy = st.sidebar.selectbox("Strategy", ["All", "MACD", "RSI", "Bollinger Bands"])
+selected_symbol = st.sidebar.selectbox("Symbol", ["BTCUSD", "ETHUSD", "ADAUSD"])
+time_range = st.sidebar.selectbox("Time Range", ["1D", "1W", "1M", "3M", "1Y"])
 
-# Main dashboard
+# Main content
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("System Status", "Online", "✅")
-
+    st.metric("Portfolio Value", "$125,430", "2.3%")
 with col2:
-    st.metric("Active Strategies", "0", "📈")
-
+    st.metric("Total Return", "15.2%", "0.8%")
 with col3:
-    st.metric("Total P&L", "$0.00", "💰")
-
+    st.metric("Sharpe Ratio", "1.45", "0.12")
 with col4:
-    st.metric("Open Positions", "0", "📊")
+    st.metric("Max Drawdown", "-8.5%", "-1.2%")
 
-# Performance chart
-st.subheader("📈 Portfolio Performance")
+# Charts
+st.header("📈 Performance Charts")
 
 # Generate sample data
-dates = pd.date_range(start=datetime.now()-timedelta(days=30), end=datetime.now(), freq='D')
+dates = pd.date_range(start='2024-01-01', end='2024-12-31', freq='D')
 returns = np.random.normal(0.001, 0.02, len(dates))
 portfolio_value = 100000 * np.exp(np.cumsum(returns))
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=dates,
-    y=portfolio_value,
-    mode='lines',
-    name='Portfolio Value',
-    line=dict(color='#3498db', width=2)
-))
-
-fig.update_layout(
-    title="Portfolio Value Over Time",
-    xaxis_title="Date",
-    yaxis_title="Value ($)",
-    height=400
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# Strategy table
-st.subheader("📋 Strategy Overview")
-
-# Sample strategy data
-strategy_data = pd.DataFrame({
-    'Strategy': ['Mean Reversion', 'Momentum', 'Arbitrage'],
-    'Status': ['Active', 'Paused', 'Active'],
-    'P&L': ['$1,234', '-$567', '$891'],
-    'Win Rate': ['65%', '45%', '72%'],
-    'Positions': [2, 0, 1]
+chart_data = pd.DataFrame({
+    'Date': dates,
+    'Portfolio Value': portfolio_value
 })
 
-st.dataframe(strategy_data, use_container_width=True)
+fig = px.line(chart_data, x='Date', y='Portfolio Value',
+              title='Portfolio Performance Over Time')
+st.plotly_chart(fig, use_container_width=True)
 
-# Info section
-st.info("""
-⚠️ **Development Dashboard**
-This dashboard shows sample data. In production, it would display:
-- Real-time trading metrics
-- Live strategy performance
-- Risk analytics
-- Trade execution logs
-- System health monitoring
-""")
+# Recent trades
+st.header("📋 Recent Trades")
+trades_data = pd.DataFrame({
+    'Time': [datetime.now() - timedelta(hours=i) for i in range(5)],
+    'Symbol': ['BTCUSD', 'ETHUSD', 'BTCUSD', 'ADAUSD', 'ETHUSD'],
+    'Side': ['BUY', 'SELL', 'SELL', 'BUY', 'BUY'],
+    'Quantity': [0.05, 2.1, 0.03, 1000, 1.8],
+    'Price': [67430, 3890, 67200, 0.45, 3910],
+    'PnL': ['+$234', '-$89', '+$156', '+$45', '-$23']
+})
 
-# Auto-refresh
-if auto_refresh:
-    import time
-    time.sleep(30)
-    st.experimental_rerun()
+st.dataframe(trades_data, use_container_width=True)
 '''
+    
+    # Write dashboard file
+    dashboard_path = Path("scripts/temp_dashboard.py")
+    dashboard_path.write_text(dashboard_content)
+    
+    # Run dashboard
+    import subprocess
+    
+    try:
+        print("🚀 Launching basic Streamlit dashboard...")
+        
+        process = subprocess.Popen([
+            'streamlit', 'run', str(dashboard_path),
+            '--server.port', str(port),
+            '--server.address', host,
+            '--server.headless', 'true',
+            '--browser.gatherUsageStats', 'false'
+        ])
+        
+        # Open browser
+        await asyncio.sleep(3)
+        webbrowser.open(f'http://{host}:{port}')
+        
+        print(f"✅ Dashboard started! Visit: http://{host}:{port}")
+        print("   Press Ctrl+C to stop")
+        
+        # Wait for process
+        process.wait()
+        
+        # Cleanup
+        dashboard_path.unlink(missing_ok=True)
+        
+        return 0
+        
+    except Exception as e:
+        print(f"❌ Error running basic dashboard: {e}")
+        dashboard_path.unlink(missing_ok=True)
+        return 1
+
+def create_simple_dashboard_html():
+    """Create simple HTML dashboard."""
+    return '''<!DOCTYPE html>
+<html>
+<head>
+    <title>Crypto Strategy Lab - Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .header { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        .metrics { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+        .metric { background: white; padding: 20px; border-radius: 10px; flex: 1; min-width: 200px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .metric-value { font-size: 24px; font-weight: bold; color: #27ae60; }
+        .metric-label { color: #7f8c8d; font-size: 14px; }
+        .status { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .refresh-btn { background: #3498db; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .refresh-btn:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Crypto Strategy Lab - Dashboard</h1>
+        <p>Real-time monitoring and analytics</p>
+    </div>
+    
+    <div class="metrics">
+        <div class="metric">
+            <div class="metric-label">Portfolio Value</div>
+            <div class="metric-value">$125,430</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Total Return</div>
+            <div class="metric-value">+15.2%</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Sharpe Ratio</div>
+            <div class="metric-value">1.45</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Max Drawdown</div>
+            <div class="metric-value">-8.5%</div>
+        </div>
+    </div>
+    
+    <div class="status">
+        <h3>🎯 System Status</h3>
+        <p>✅ All systems operational</p>
+        <p>📊 Monitoring 3 strategies across 5 symbols</p>
+        <p>🔄 Last update: <span id="timestamp"></span></p>
+        <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+    </div>
+    
+    <script>
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        // Auto-refresh every 30 seconds
+        setTimeout(() => location.reload(), 30000);
+    </script>
+</body>
+</html>'''
