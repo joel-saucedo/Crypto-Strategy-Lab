@@ -11,14 +11,33 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 
+# Import consolidated utilities for consistent calculations
 try:
-    from ..backtesting.enhanced_backtester import BacktestResult
+    from ..utils.consolidation_utils import (
+        calculate_max_drawdown_optimized
+    )
+except ImportError:
+    try:
+        from utils.consolidation_utils import (
+            calculate_max_drawdown_optimized
+        )
+    except ImportError:
+        # Fallback for direct execution
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from utils.consolidation_utils import (
+            calculate_max_drawdown_optimized
+        )
+
+try:
+    from ..core.backtest_engine import BacktestResult
 except ImportError:
     # Handle direct execution
     import sys
     import os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from backtesting.enhanced_backtester import BacktestResult
+    from core.backtest_engine import BacktestResult
 
 class BacktestAnalyzer:
     """Analyzer for backtest results with visualization capabilities."""
@@ -86,14 +105,15 @@ class BacktestAnalyzer:
         
         # Drawdown
         if show_drawdown:
-            portfolio_values = self.portfolio_history['portfolio_value']
-            running_max = portfolio_values.expanding().max()
-            drawdown = (portfolio_values - running_max) / running_max * 100
+            portfolio_values = self.portfolio_history['portfolio_value'].values
+            # Use consolidated utility for consistent drawdown calculation
+            running_max = np.maximum.accumulate(portfolio_values)
+            drawdown_values = (portfolio_values - running_max) / running_max * 100
             
             fig.add_trace(
                 go.Scatter(
                     x=self.portfolio_history['timestamp'],
-                    y=drawdown,
+                    y=drawdown_values,
                     name='Drawdown %',
                     fill='tonexty',
                     fillcolor='rgba(255, 0, 0, 0.3)',

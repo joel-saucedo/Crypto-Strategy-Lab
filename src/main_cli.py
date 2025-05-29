@@ -63,6 +63,7 @@ Examples:
     validate_parser.add_argument('--config', help='Config file to validate')
     validate_parser.add_argument('--trials', type=int, default=10000, help='Monte Carlo trials')
     validate_parser.add_argument('--min-dsr', type=float, default=0.95, help='Minimum DSR threshold')
+    validate_parser.add_argument('--quick', action='store_true', help='Quick validation (skip intensive checks)')
     
     # Paper trading command
     paper_parser = subparsers.add_parser('paper', help='Run paper trading simulation')

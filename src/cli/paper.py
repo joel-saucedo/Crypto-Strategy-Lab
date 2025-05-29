@@ -35,8 +35,8 @@ def run_paper_trading(args):
         signal.signal(signal.SIGINT, signal_handler)
         
         # Import and initialize components
-        from core.backtest_engine import MultiStrategyOrchestrator as BacktestEngine
-        from core.backtest_engine import BacktestConfig
+        from ..core.backtest_engine import MultiStrategyOrchestrator as BacktestEngine
+        from ..core.backtest_engine import BacktestConfig
         
         # Configure paper trading
         config = BacktestConfig(

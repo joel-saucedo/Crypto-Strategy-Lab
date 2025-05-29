@@ -14,14 +14,14 @@ import asyncio
 # Add parent directories to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backtest_engine import (
+from src.core.backtest_engine import (
     MultiStrategyOrchestrator as BacktestEngine, 
     BacktestConfig, 
     PositionSizingConfig,
     PositionSizingType
 )
-from data.data_manager import DataManager
-from strategies.base_strategy import BaseStrategy
+from src.data.data_manager import DataManager
+from src.strategies.base_strategy import BaseStrategy
 
 async def run_backtest(args):
     """

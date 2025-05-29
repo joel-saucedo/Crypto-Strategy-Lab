@@ -17,14 +17,14 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "src"))
 
 try:
-    from core.backtest_engine import (
+    from src.core.backtest_engine import (
         MultiStrategyOrchestrator, 
         BacktestConfig, 
         PositionSizingType,
         PositionSizingConfig
     )
-    from strategies.base_strategy import BaseStrategy
-    from data.data_manager import DataManager
+    from src.strategies.base_strategy import BaseStrategy
+    from src.data.data_manager import DataManager
     print("✓ All imports successful")
 except ImportError as e:
     print(f"✗ Import error: {e}")

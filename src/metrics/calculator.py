@@ -12,6 +12,28 @@ from scipy.optimize import minimize_scalar
 import warnings
 import logging
 
+# Import consolidated utilities to replace duplicates
+try:
+    from ..utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_information_ratio_optimized,
+        calculate_comprehensive_metrics,
+        analyze_drawdowns
+    )
+except ImportError:
+    from utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_information_ratio_optimized,
+        calculate_comprehensive_metrics,
+        analyze_drawdowns
+    )
+
 logger = logging.getLogger(__name__)
 
 class MetricsCalculator:
@@ -149,49 +171,47 @@ class MetricsCalculator:
             
         metrics = {}
         
-        # Basic Sharpe ratio
-        excess_returns = returns - self.risk_free_rate / self.trading_days_per_year
-        if returns.std() > 0:
-            sharpe_ratio = excess_returns.mean() / returns.std() * np.sqrt(self.trading_days_per_year)
-        else:
-            sharpe_ratio = 0.0
-            
+        # Use consolidated Sharpe ratio calculation
+        returns_array = returns.values
+        sharpe_ratio = calculate_sharpe_ratio_optimized(
+            returns_array, 
+            self.risk_free_rate, 
+            self.trading_days_per_year
+        )
         metrics['sharpe_ratio'] = sharpe_ratio
         
-        # Sortino ratio
-        downside_returns = returns[returns < self.risk_free_rate / self.trading_days_per_year]
-        if len(downside_returns) > 0 and downside_returns.std() > 0:
-            sortino_ratio = excess_returns.mean() / downside_returns.std() * np.sqrt(self.trading_days_per_year)
-        else:
-            sortino_ratio = 0.0
-            
+        # Use consolidated Sortino ratio calculation  
+        sortino_ratio = calculate_sortino_ratio_optimized(
+            returns_array,
+            self.risk_free_rate / self.trading_days_per_year,
+            self.trading_days_per_year
+        )
         metrics['sortino_ratio'] = sortino_ratio
         
-        # Calmar ratio
+        # Use consolidated Calmar ratio calculation
         max_drawdown = self.calculate_max_drawdown(returns)
-        if max_drawdown > 0:
-            calmar_ratio = (returns.mean() * self.trading_days_per_year) / max_drawdown
-        else:
-            calmar_ratio = 0.0
-            
+        annualized_return = returns.mean() * self.trading_days_per_year
+        calmar_ratio = calculate_calmar_ratio_optimized(annualized_return, max_drawdown)
         metrics['calmar_ratio'] = calmar_ratio
         
         # Information ratio (if benchmark provided)
         if benchmark_returns is not None and len(benchmark_returns) == len(returns):
             active_returns = returns - benchmark_returns
-            tracking_error = active_returns.std()
-            if tracking_error > 0:
-                information_ratio = active_returns.mean() / tracking_error * np.sqrt(self.trading_days_per_year)
-            else:
-                information_ratio = 0.0
-                
+            excess_returns_array = active_returns.values
+            information_ratio = calculate_information_ratio_optimized(
+                excess_returns_array,
+                self.trading_days_per_year
+            )
             metrics['information_ratio'] = information_ratio
-            metrics['tracking_error'] = tracking_error * np.sqrt(self.trading_days_per_year)
+            
+            tracking_error = active_returns.std() * np.sqrt(self.trading_days_per_year)
+            metrics['tracking_error'] = tracking_error
             
             # Treynor ratio (requires beta calculation)
             if benchmark_returns.std() > 0:
                 beta = np.cov(returns, benchmark_returns)[0, 1] / benchmark_returns.var()
                 if beta > 0:
+                    excess_returns = returns - self.risk_free_rate / self.trading_days_per_year
                     treynor_ratio = excess_returns.mean() / beta * self.trading_days_per_year
                 else:
                     treynor_ratio = 0.0
@@ -248,15 +268,13 @@ class MetricsCalculator:
         }
     
     def calculate_max_drawdown(self, returns: pd.Series) -> float:
-        """Calculate maximum drawdown."""
+        """Calculate maximum drawdown using consolidated utility."""
         if len(returns) == 0:
             return 0.0
             
-        cumulative_returns = (1 + returns).cumprod()
-        running_max = cumulative_returns.expanding().max()
-        drawdowns = (cumulative_returns - running_max) / running_max
-        
-        return abs(drawdowns.min())
+        cumulative_returns = (1 + returns).cumprod().values
+        max_dd, _, _ = calculate_max_drawdown_optimized(cumulative_returns)
+        return max_dd
     
     def calculate_distribution_metrics(self, returns: pd.Series) -> Dict[str, float]:
         """Calculate return distribution metrics."""
@@ -489,9 +507,10 @@ class MetricsCalculator:
         if len(returns) == 0:
             return 0.0
             
-        cumulative_returns = (1 + returns).cumprod()
-        running_max = cumulative_returns.expanding().max()
-        drawdowns = (cumulative_returns - running_max) / running_max
+        # Use consistent approach with consolidated utilities  
+        cumulative_values = (1 + returns).cumprod().values
+        running_max = np.maximum.accumulate(cumulative_values)
+        drawdowns = (cumulative_values - running_max) / running_max
         
         ulcer_index = np.sqrt((drawdowns**2).mean())
         

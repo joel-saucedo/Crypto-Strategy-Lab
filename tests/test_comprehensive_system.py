@@ -29,7 +29,7 @@ def test_imports():
     print("🔄 Testing imports...")
     
     try:
-        from core.backtest_engine import (
+        from src.core.backtest_engine import (
             BacktestConfig, 
             BacktestEngine, 
             MultiStrategyOrchestrator,
@@ -38,7 +38,7 @@ def test_imports():
             PositionSizingEngine,
             MonteCarloValidator
         )
-        from strategies.base_strategy import BaseStrategy
+        from src.strategies.base_strategy import BaseStrategy
         from backtesting.portfolio_manager import PortfolioManager
         print("✅ Core imports successful")
         
@@ -128,7 +128,7 @@ def test_position_sizing():
     
     try:
         # Import components
-        from core.backtest_engine import PositionSizingType, PositionSizingConfig, PositionSizingEngine
+        from src.core.backtest_engine import PositionSizingType, PositionSizingConfig, PositionSizingEngine
         
         # Test different sizing methods
         sizing_methods = [

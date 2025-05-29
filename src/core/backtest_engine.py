@@ -19,6 +19,20 @@ import json
 from enum import Enum
 from abc import ABC, abstractmethod
 from scipy import stats
+
+# Import consolidated utilities to replace duplicates
+try:
+    from ..utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_comprehensive_metrics
+    )
+except ImportError:
+    from utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_comprehensive_metrics
+    )
 from numba import jit, prange
 
 # Set up logging
@@ -711,17 +725,20 @@ class PortfolioManager:
         returns = np.array(self._daily_returns)
         portfolio_values = [h['portfolio_value'] for h in self.portfolio_history]
         
-        # Basic metrics
+        # Basic metrics using consolidated utilities
         total_return = (portfolio_values[-1] / self.initial_capital) - 1
         annualized_return = np.mean(returns) * 252
         volatility = np.std(returns) * np.sqrt(252)
-        sharpe_ratio = annualized_return / volatility if volatility > 0 else 0
         
-        # Drawdown calculation
-        equity_series = pd.Series(portfolio_values)
-        rolling_max = equity_series.expanding().max()
-        drawdowns = (equity_series - rolling_max) / rolling_max
-        max_drawdown = drawdowns.min()
+        # Use consolidated Sharpe ratio calculation
+        sharpe_ratio = calculate_sharpe_ratio_optimized(returns, 0.0, 252)
+        
+        # Use consolidated max drawdown calculation
+        max_drawdown, _, _ = calculate_max_drawdown_optimized(np.array(portfolio_values))
+        
+        # Calmar ratio with consolidated utility import
+        from ..utils.consolidation_utils import calculate_calmar_ratio_optimized
+        calmar_ratio = calculate_calmar_ratio_optimized(annualized_return, max_drawdown)
         
         # Trade statistics
         winning_trades = [t for t in self.closed_trades if t.pnl > 0]
@@ -733,7 +750,7 @@ class PortfolioManager:
             'volatility': volatility,
             'sharpe_ratio': sharpe_ratio,
             'max_drawdown': max_drawdown,
-            'calmar_ratio': annualized_return / abs(max_drawdown) if max_drawdown != 0 else 0,
+            'calmar_ratio': calmar_ratio,
             'total_trades': len(self.closed_trades),
             'winning_trades': len(winning_trades),
             'losing_trades': len(losing_trades),

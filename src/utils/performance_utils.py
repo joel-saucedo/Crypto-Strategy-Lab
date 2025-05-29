@@ -7,11 +7,31 @@ import pandas as pd
 from typing import Dict, List, Optional, Tuple, Any
 import warnings
 
+# Import consolidated utilities to avoid duplicates
+try:
+    from .consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_comprehensive_metrics,
+        analyze_drawdowns
+    )
+except ImportError:
+    from consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_comprehensive_metrics,
+        analyze_drawdowns
+    )
+
 
 def performance_summary(returns: pd.Series, benchmark_returns: Optional[pd.Series] = None,
                        risk_free_rate: float = 0.02) -> Dict[str, Any]:
     """
-    Generate comprehensive performance summary.
+    Generate comprehensive performance summary using consolidated utilities.
     
     Args:
         returns: Strategy return series
@@ -24,27 +44,13 @@ def performance_summary(returns: pd.Series, benchmark_returns: Optional[pd.Serie
     if len(returns) == 0:
         return {'error': 'No returns data provided'}
     
-    # Basic statistics
+    # Use consolidated comprehensive metrics calculation
+    metrics = calculate_comprehensive_metrics(returns.values, risk_free_rate, 252)
+    
+    # Convert to expected format and add additional calculations
     total_return = (1 + returns).prod() - 1
     annual_return = (1 + returns).mean() * 252
     annual_vol = returns.std() * np.sqrt(252)
-    
-    # Risk-adjusted metrics
-    sharpe_ratio = (annual_return - risk_free_rate) / annual_vol if annual_vol > 0 else 0
-    
-    # Drawdown analysis
-    cumulative = (1 + returns).cumprod()
-    running_max = cumulative.expanding().max()
-    drawdown = (cumulative - running_max) / running_max
-    max_drawdown = abs(drawdown.min())
-    
-    # Sortino ratio
-    downside_returns = returns[returns < 0]
-    downside_vol = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 0 else 0
-    sortino_ratio = (annual_return - risk_free_rate) / downside_vol if downside_vol > 0 else 0
-    
-    # Calmar ratio
-    calmar_ratio = annual_return / max_drawdown if max_drawdown > 0 else 0
     
     # Win rate and profit factor
     winning_trades = returns[returns > 0]
@@ -67,10 +73,10 @@ def performance_summary(returns: pd.Series, benchmark_returns: Optional[pd.Serie
         'total_return': float(total_return),
         'annual_return': float(annual_return),
         'annual_volatility': float(annual_vol),
-        'sharpe_ratio': float(sharpe_ratio),
-        'sortino_ratio': float(sortino_ratio),
-        'calmar_ratio': float(calmar_ratio),
-        'max_drawdown': float(max_drawdown),
+        'sharpe_ratio': float(metrics['sharpe_ratio']),
+        'sortino_ratio': float(metrics['sortino_ratio']),
+        'calmar_ratio': float(metrics['calmar_ratio']),
+        'max_drawdown': float(metrics['max_drawdown']),
         'max_drawdown_duration': int(max_dd_duration),
         'win_rate': float(win_rate),
         'profit_factor': float(profit_factor),
@@ -173,9 +179,9 @@ def compare_to_benchmark(strategy_returns: pd.Series, benchmark_returns: pd.Seri
     beta = correlation * (strategy_vol / benchmark_vol) if benchmark_vol > 0 else 0
     alpha = strategy_annual - (risk_free_rate + beta * (benchmark_annual - risk_free_rate))
     
-    # Sharpe ratios
-    strategy_sharpe = (strategy_annual - risk_free_rate) / strategy_vol if strategy_vol > 0 else 0
-    benchmark_sharpe = (benchmark_annual - risk_free_rate) / benchmark_vol if benchmark_vol > 0 else 0
+    # Sharpe ratios using consolidated utilities
+    strategy_sharpe = calculate_sharpe_ratio_optimized(strategy_aligned.values, risk_free_rate, 252)
+    benchmark_sharpe = calculate_sharpe_ratio_optimized(benchmark_aligned.values, risk_free_rate, 252)
     
     return {
         'excess_return': float(strategy_annual - benchmark_annual),
@@ -192,7 +198,7 @@ def compare_to_benchmark(strategy_returns: pd.Series, benchmark_returns: pd.Seri
 
 def rolling_performance(returns: pd.Series, window: int = 252) -> pd.DataFrame:
     """
-    Calculate rolling performance metrics.
+    Calculate rolling performance metrics using consolidated utilities.
     
     Args:
         returns: Return series
@@ -207,17 +213,30 @@ def rolling_performance(returns: pd.Series, window: int = 252) -> pd.DataFrame:
     rolling_metrics['rolling_return'] = returns.rolling(window).mean() * 252
     rolling_metrics['rolling_volatility'] = returns.rolling(window).std() * np.sqrt(252)
     
-    # Rolling Sharpe ratio
-    rolling_metrics['rolling_sharpe'] = (
-        rolling_metrics['rolling_return'] / rolling_metrics['rolling_volatility']
-    )
+    # Rolling Sharpe ratio using consolidated utility
+    rolling_sharpe = []
+    for i in range(len(returns)):
+        if i < window - 1:
+            rolling_sharpe.append(np.nan)
+        else:
+            window_returns = returns.iloc[i-window+1:i+1].values
+            sharpe = calculate_sharpe_ratio_optimized(window_returns, 0.0, 252)
+            rolling_sharpe.append(sharpe)
     
-    # Rolling maximum drawdown
-    cumulative = (1 + returns).cumprod()
-    rolling_max = cumulative.rolling(window).max()
-    rolling_metrics['rolling_max_drawdown'] = (
-        (rolling_max - cumulative) / rolling_max
-    ).rolling(window).max()
+    rolling_metrics['rolling_sharpe'] = rolling_sharpe
+    
+    # Rolling maximum drawdown using consolidated utility
+    rolling_max_dd = []
+    for i in range(len(returns)):
+        if i < window - 1:
+            rolling_max_dd.append(np.nan)
+        else:
+            window_returns = returns.iloc[i-window+1:i+1]
+            cumulative_window = (1 + window_returns).cumprod().values
+            max_dd, _, _ = calculate_max_drawdown_optimized(cumulative_window)
+            rolling_max_dd.append(max_dd)
+    
+    rolling_metrics['rolling_max_drawdown'] = rolling_max_dd
     
     # Rolling win rate
     rolling_metrics['rolling_win_rate'] = (
@@ -229,7 +248,7 @@ def rolling_performance(returns: pd.Series, window: int = 252) -> pd.DataFrame:
 
 def drawdown_analysis(returns: pd.Series) -> Dict[str, Any]:
     """
-    Detailed drawdown analysis.
+    Detailed drawdown analysis using consolidated utilities.
     
     Args:
         returns: Return series
@@ -237,68 +256,22 @@ def drawdown_analysis(returns: pd.Series) -> Dict[str, Any]:
     Returns:
         Drawdown analysis results
     """
-    cumulative = (1 + returns).cumprod()
-    running_max = cumulative.expanding().max()
-    drawdown = (cumulative - running_max) / running_max
+    if len(returns) == 0:
+        return {
+            'max_drawdown': 0.0,
+            'average_drawdown': 0.0,
+            'max_duration': 0,
+            'average_duration': 0.0,
+            'number_of_drawdowns': 0,
+            'drawdown_periods': [],
+            'time_in_drawdown': 0.0
+        }
     
-    # Find all drawdown periods
-    in_drawdown = drawdown < -0.001  # Small threshold
-    drawdown_periods = []
+    # Use consolidated utility for detailed drawdown analysis
+    cumulative_values = (1 + returns).cumprod().values
+    detailed_analysis = analyze_drawdowns(cumulative_values, returns.index.tolist())
     
-    current_start = None
-    for i, is_dd in enumerate(in_drawdown):
-        if is_dd and current_start is None:
-            current_start = i
-        elif not is_dd and current_start is not None:
-            # End of drawdown period
-            period_drawdown = drawdown.iloc[current_start:i]
-            max_dd_in_period = abs(period_drawdown.min())
-            duration = i - current_start
-            
-            drawdown_periods.append({
-                'start_date': returns.index[current_start],
-                'end_date': returns.index[i-1],
-                'duration': duration,
-                'max_drawdown': max_dd_in_period,
-                'recovery_date': returns.index[i] if i < len(returns) else None
-            })
-            current_start = None
-    
-    # Handle case where series ends in drawdown
-    if current_start is not None:
-        period_drawdown = drawdown.iloc[current_start:]
-        max_dd_in_period = abs(period_drawdown.min())
-        duration = len(returns) - current_start
-        
-        drawdown_periods.append({
-            'start_date': returns.index[current_start],
-            'end_date': returns.index[-1],
-            'duration': duration,
-            'max_drawdown': max_dd_in_period,
-            'recovery_date': None  # Still in drawdown
-        })
-    
-    # Summary statistics
-    if drawdown_periods:
-        max_drawdown = max(dd['max_drawdown'] for dd in drawdown_periods)
-        avg_drawdown = np.mean([dd['max_drawdown'] for dd in drawdown_periods])
-        max_duration = max(dd['duration'] for dd in drawdown_periods)
-        avg_duration = np.mean([dd['duration'] for dd in drawdown_periods])
-    else:
-        max_drawdown = 0
-        avg_drawdown = 0
-        max_duration = 0
-        avg_duration = 0
-    
-    return {
-        'max_drawdown': float(max_drawdown),
-        'average_drawdown': float(avg_drawdown),
-        'max_duration': int(max_duration),
-        'average_duration': float(avg_duration),
-        'number_of_drawdowns': len(drawdown_periods),
-        'drawdown_periods': drawdown_periods,
-        'time_in_drawdown': float(in_drawdown.mean())
-    }
+    return detailed_analysis
 
 
 def monthly_performance_table(returns: pd.Series) -> pd.DataFrame:

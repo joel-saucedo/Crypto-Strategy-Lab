@@ -15,6 +15,7 @@ from .config_utils import *
 from .risk_utils import *
 from .performance_utils import *
 from .feature_engineering import FeatureEngine
+from .technical_indicators import TechnicalIndicators
 
 __all__ = [
     # Math utilities
@@ -52,4 +53,7 @@ __all__ = [
     
     # Feature Engineering
     'FeatureEngine',
+    
+    # Technical Indicators
+    'TechnicalIndicators',
 ]

@@ -16,6 +16,19 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
+# Import consolidated utilities
+sys.path.append(str(Path(__file__).parent.parent))
+try:
+    from src.utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized
+    )
+except ImportError:
+    from utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized
+    )
+
 st.set_page_config(
     page_title="Crypto-Strategy-Lab Monitor",
     page_icon="📈",
@@ -105,10 +118,9 @@ def calculate_metrics(df):
     end_value = df["Portfolio"].iloc[-1]
     total_return = (end_value / start_value) - 1
     
-    # Calculate max drawdown
-    df["Peak"] = df["Portfolio"].cummax()
-    df["Drawdown"] = (df["Portfolio"] / df["Peak"]) - 1
-    max_drawdown = df["Drawdown"].min()
+    # Calculate max drawdown using consolidated utility
+    portfolio_values = df["Portfolio"].values
+    max_drawdown, _, _ = calculate_max_drawdown_optimized(portfolio_values)
     
     # Annualized metrics
     days = (df["Date"].iloc[-1] - df["Date"].iloc[0]).days
@@ -120,7 +132,8 @@ def calculate_metrics(df):
     daily_returns = df["Returns"].dropna()
     if len(daily_returns) > 1:
         volatility = daily_returns.std() * np.sqrt(252)
-        sharpe = 0 if volatility == 0 else annualized_return / volatility
+        # Use consolidated Sharpe ratio calculation
+        sharpe = calculate_sharpe_ratio_optimized(daily_returns.values, 0.0, 252)
     else:
         volatility = 0
         sharpe = 0

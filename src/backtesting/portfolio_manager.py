@@ -9,6 +9,20 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import logging
 
+# Import consolidated utilities to avoid duplicates
+try:
+    from ..utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_comprehensive_metrics
+    )
+except ImportError:
+    from utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_comprehensive_metrics
+    )
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -284,8 +298,10 @@ class PortfolioManager:
         # Portfolio history metrics
         if self.portfolio_history:
             portfolio_df = pd.DataFrame(self.portfolio_history)
-            max_portfolio_value = portfolio_df['portfolio_value'].max()
-            max_drawdown = ((max_portfolio_value - portfolio_df['portfolio_value'].min()) / max_portfolio_value) * 100
+            # Use consolidated utility for max drawdown calculation
+            portfolio_values = portfolio_df['portfolio_value'].values
+            max_drawdown, _, _ = calculate_max_drawdown_optimized(portfolio_values)
+            max_drawdown = max_drawdown * 100  # Convert to percentage
         else:
             max_drawdown = 0
         

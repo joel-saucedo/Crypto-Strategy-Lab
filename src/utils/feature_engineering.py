@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional
 from scipy import stats
-import talib
+from .technical_indicators import TechnicalIndicators
 
 class FeatureEngine:
     """
@@ -47,8 +47,8 @@ class FeatureEngine:
         df['parkinson_vol'] = self._parkinson_volatility(df)
         
         # Technical indicators
-        df['rsi'] = talib.RSI(df['close'].values, timeperiod=14)
-        df['macd'], df['macd_signal'], df['macd_hist'] = talib.MACD(df['close'].values)
+        df['rsi'] = TechnicalIndicators.rsi(df['close'], period=14)
+        df['macd'], df['macd_signal'], df['macd_hist'] = TechnicalIndicators.macd(df['close'])
         
         # Regime indicators
         df['regime_vol'] = self._volatility_regime(df['realized_vol'])

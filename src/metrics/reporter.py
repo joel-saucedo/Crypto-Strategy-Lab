@@ -12,6 +12,18 @@ import json
 import logging
 from pathlib import Path
 
+# Import consolidated utilities for consistent calculations
+try:
+    from ..utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized
+    )
+except ImportError:
+    from utils.consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_max_drawdown_optimized
+    )
+
 logger = logging.getLogger(__name__)
 
 class MetricsReporter:
@@ -435,8 +447,18 @@ class MetricsReporter:
     
     def _plot_rolling_sharpe(self, returns: pd.Series, ax, window: int = 252) -> None:
         """Plot rolling Sharpe ratio."""
-        rolling_sharpe = returns.rolling(window).mean() / returns.rolling(window).std() * np.sqrt(252)
-        ax.plot(rolling_sharpe.index, rolling_sharpe.values)
+        # Calculate rolling Sharpe ratio using consolidated utility
+        rolling_sharpe = []
+        for i in range(len(returns)):
+            if i < window - 1:
+                rolling_sharpe.append(np.nan)
+            else:
+                window_returns = returns.iloc[i-window+1:i+1].values
+                sharpe = calculate_sharpe_ratio_optimized(window_returns, 0.0, 252)
+                rolling_sharpe.append(sharpe)
+        
+        rolling_sharpe_series = pd.Series(rolling_sharpe, index=returns.index)
+        ax.plot(rolling_sharpe_series.index, rolling_sharpe_series.values)
         ax.axhline(y=1.0, color='g', linestyle='--', alpha=0.7, label='Good (1.0)')
         ax.axhline(y=0.5, color='orange', linestyle='--', alpha=0.7, label='Fair (0.5)')
         ax.axhline(y=0.0, color='r', linestyle='--', alpha=0.7, label='Poor (0.0)')
@@ -447,9 +469,15 @@ class MetricsReporter:
     
     def _plot_drawdown(self, returns: pd.Series, ax) -> None:
         """Plot drawdown."""
-        cumulative = (1 + returns).cumprod()
-        running_max = cumulative.expanding().max()
-        drawdown = (cumulative - running_max) / running_max
+        # Calculate cumulative values and use consolidated utility for consistent drawdown calculation
+        cumulative_values = (1 + returns).cumprod().values
+        
+        # Calculate running maximum and drawdown series
+        running_max = np.maximum.accumulate(cumulative_values)
+        drawdown_values = (cumulative_values - running_max) / running_max
+        
+        # Create drawdown series with original index
+        drawdown = pd.Series(drawdown_values, index=returns.index)
         
         ax.fill_between(drawdown.index, drawdown.values, 0, alpha=0.7, color='red')
         ax.set_title('Drawdown')

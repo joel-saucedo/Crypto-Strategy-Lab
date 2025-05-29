@@ -8,6 +8,24 @@ from typing import Dict, List, Optional, Tuple, Union
 from scipy import stats
 import warnings
 
+# Import consolidated utilities to avoid duplicates
+try:
+    from .consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_information_ratio_optimized
+    )
+except ImportError:
+    from consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_information_ratio_optimized
+    )
+
 
 def calculate_var(returns: np.ndarray, confidence_level: float = 0.05) -> float:
     """
@@ -206,7 +224,7 @@ def calculate_portfolio_risk(weights: np.ndarray, cov_matrix: np.ndarray) -> flo
 
 def calculate_maximum_drawdown_duration(returns: pd.Series) -> int:
     """
-    Calculate maximum drawdown duration in periods.
+    Calculate maximum drawdown duration in periods using consolidated utility.
     
     Args:
         returns: Return series
@@ -214,33 +232,44 @@ def calculate_maximum_drawdown_duration(returns: pd.Series) -> int:
     Returns:
         Maximum drawdown duration
     """
-    cumulative = (1 + returns).cumprod()
-    running_max = cumulative.expanding().max()
-    drawdown = (cumulative - running_max) / running_max
-    
-    # Find drawdown periods
-    in_drawdown = drawdown < 0
-    
-    if not in_drawdown.any():
+    if len(returns) == 0:
         return 0
     
-    # Calculate consecutive drawdown periods
-    drawdown_periods = []
-    current_period = 0
-    
-    for is_dd in in_drawdown:
-        if is_dd:
-            current_period += 1
-        else:
-            if current_period > 0:
-                drawdown_periods.append(current_period)
-                current_period = 0
-    
-    # Don't forget the last period if it ends in drawdown
-    if current_period > 0:
-        drawdown_periods.append(current_period)
-    
-    return max(drawdown_periods) if drawdown_periods else 0
+    # Use consolidated utility for drawdown analysis which includes duration
+    cumulative_values = (1 + returns).cumprod().values
+    from .consolidation_utils import analyze_drawdowns
+    try:
+        detailed_analysis = analyze_drawdowns(cumulative_values, returns.index.tolist())
+        return detailed_analysis.get('max_duration', 0)
+    except:
+        # Fallback to manual calculation if consolidated utility fails
+        cumulative = (1 + returns).cumprod()
+        running_max = cumulative.expanding().max()
+        drawdown = (cumulative - running_max) / running_max
+        
+        # Find drawdown periods
+        in_drawdown = drawdown < 0
+        
+        if not in_drawdown.any():
+            return 0
+        
+        # Calculate consecutive drawdown periods
+        drawdown_periods = []
+        current_period = 0
+        
+        for is_dd in in_drawdown:
+            if is_dd:
+                current_period += 1
+            else:
+                if current_period > 0:
+                    drawdown_periods.append(current_period)
+                    current_period = 0
+        
+        # Don't forget the last period if it ends in drawdown
+        if current_period > 0:
+            drawdown_periods.append(current_period)
+        
+        return max(drawdown_periods) if drawdown_periods else 0
 
 
 def calculate_tail_ratio(returns: pd.Series, percentile: float = 0.05) -> float:
@@ -314,7 +343,7 @@ def dynamic_position_sizing(returns: pd.Series, lookback: int = 252,
 
 def calculate_risk_adjusted_returns(returns: pd.Series, risk_free_rate: float = 0.02) -> Dict[str, float]:
     """
-    Calculate comprehensive risk-adjusted return metrics.
+    Calculate comprehensive risk-adjusted return metrics using consolidated utilities.
     
     Args:
         returns: Return series
@@ -323,23 +352,33 @@ def calculate_risk_adjusted_returns(returns: pd.Series, risk_free_rate: float = 
     Returns:
         Dictionary of risk-adjusted metrics
     """
+    if len(returns) == 0:
+        return {
+            'annual_return': 0.0,
+            'annual_volatility': 0.0,
+            'sharpe_ratio': 0.0,
+            'sortino_ratio': 0.0,
+            'calmar_ratio': 0.0,
+            'information_ratio': 0.0,
+            'max_drawdown': 0.0
+        }
+    
     annual_return = returns.mean() * 252
     annual_vol = returns.std() * np.sqrt(252)
     
-    # Sharpe ratio
-    sharpe = (annual_return - risk_free_rate) / annual_vol if annual_vol > 0 else 0
+    # Use consolidated utilities for risk-adjusted metrics
+    returns_array = returns.values
     
-    # Sortino ratio
-    downside_returns = returns[returns < 0]
-    downside_vol = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 0 else 0
-    sortino = (annual_return - risk_free_rate) / downside_vol if downside_vol > 0 else 0
+    # Sharpe ratio using consolidated utility
+    sharpe = calculate_sharpe_ratio_optimized(returns_array, risk_free_rate, 252)
     
-    # Calmar ratio
-    cumulative = (1 + returns).cumprod()
-    running_max = cumulative.expanding().max()
-    drawdown = (cumulative - running_max) / running_max
-    max_drawdown = abs(drawdown.min())
-    calmar = annual_return / max_drawdown if max_drawdown > 0 else 0
+    # Sortino ratio using consolidated utility  
+    sortino = calculate_sortino_ratio_optimized(returns_array, risk_free_rate / 252, 252)
+    
+    # Max drawdown and Calmar ratio using consolidated utilities
+    cumulative_values = (1 + returns).cumprod().values
+    max_drawdown, _, _ = calculate_max_drawdown_optimized(cumulative_values)
+    calmar = calculate_calmar_ratio_optimized(annual_return, max_drawdown)
     
     # Information ratio (assuming benchmark return = 0)
     info_ratio = annual_return / annual_vol if annual_vol > 0 else 0

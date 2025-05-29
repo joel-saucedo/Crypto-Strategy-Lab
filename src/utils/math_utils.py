@@ -8,12 +8,29 @@ from typing import Union, Tuple, Optional
 import scipy.stats as stats
 from numba import jit
 
+# Import consolidated utilities to avoid duplicates
+try:
+    from .consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_information_ratio_optimized
+    )
+except ImportError:
+    from consolidation_utils import (
+        calculate_sharpe_ratio_optimized,
+        calculate_sortino_ratio_optimized,
+        calculate_max_drawdown_optimized,
+        calculate_calmar_ratio_optimized,
+        calculate_information_ratio_optimized
+    )
 
-@jit(nopython=True)
+
 def calculate_sharpe_ratio(returns: np.ndarray, risk_free_rate: float = 0.0, 
                           periods_per_year: int = 252) -> float:
     """
-    Calculate annualized Sharpe ratio.
+    Calculate annualized Sharpe ratio using consolidated utility.
     
     Args:
         returns: Array of returns
@@ -23,24 +40,13 @@ def calculate_sharpe_ratio(returns: np.ndarray, risk_free_rate: float = 0.0,
     Returns:
         Sharpe ratio
     """
-    if len(returns) == 0:
-        return 0.0
-    
-    mean_return = np.mean(returns)
-    std_return = np.std(returns)
-    
-    if std_return == 0:
-        return 0.0
-    
-    excess_return = mean_return - (risk_free_rate / periods_per_year)
-    return (excess_return / std_return) * np.sqrt(periods_per_year)
+    return calculate_sharpe_ratio_optimized(returns, risk_free_rate, periods_per_year)
 
 
-@jit(nopython=True)
 def calculate_sortino_ratio(returns: np.ndarray, target_return: float = 0.0,
                            periods_per_year: int = 252) -> float:
     """
-    Calculate annualized Sortino ratio.
+    Calculate annualized Sortino ratio using consolidated utility.
     
     Args:
         returns: Array of returns
@@ -50,30 +56,12 @@ def calculate_sortino_ratio(returns: np.ndarray, target_return: float = 0.0,
     Returns:
         Sortino ratio
     """
-    if len(returns) == 0:
-        return 0.0
-    
-    mean_return = np.mean(returns)
-    target_daily = target_return / periods_per_year
-    
-    # Calculate downside deviation
-    downside_returns = returns[returns < target_daily]
-    if len(downside_returns) == 0:
-        return np.inf if mean_return > target_daily else 0.0
-    
-    downside_deviation = np.sqrt(np.mean((downside_returns - target_daily) ** 2))
-    
-    if downside_deviation == 0:
-        return np.inf if mean_return > target_daily else 0.0
-    
-    excess_return = mean_return - target_daily
-    return (excess_return / downside_deviation) * np.sqrt(periods_per_year)
+    return calculate_sortino_ratio_optimized(returns, target_return, periods_per_year)
 
 
-@jit(nopython=True)
 def calculate_max_drawdown(cumulative_returns: np.ndarray) -> Tuple[float, int, int]:
     """
-    Calculate maximum drawdown and its duration.
+    Calculate maximum drawdown and its duration using consolidated utility.
     
     Args:
         cumulative_returns: Array of cumulative returns
@@ -81,28 +69,7 @@ def calculate_max_drawdown(cumulative_returns: np.ndarray) -> Tuple[float, int, 
     Returns:
         Tuple of (max_drawdown, start_idx, end_idx)
     """
-    if len(cumulative_returns) == 0:
-        return 0.0, 0, 0
-    
-    peak = cumulative_returns[0]
-    max_dd = 0.0
-    start_idx = 0
-    end_idx = 0
-    temp_start = 0
-    
-    for i in range(len(cumulative_returns)):
-        if cumulative_returns[i] > peak:
-            peak = cumulative_returns[i]
-            temp_start = i
-        
-        drawdown = (peak - cumulative_returns[i]) / peak if peak != 0 else 0
-        
-        if drawdown > max_dd:
-            max_dd = drawdown
-            start_idx = temp_start
-            end_idx = i
-    
-    return max_dd, start_idx, end_idx
+    return calculate_max_drawdown_optimized(cumulative_returns)
 
 
 def rolling_correlation(x: pd.Series, y: pd.Series, window: int) -> pd.Series:
@@ -166,10 +133,9 @@ def bollinger_bands(prices: pd.Series, window: int = 20,
     return upper_band, middle_band, lower_band
 
 
-@jit(nopython=True)
 def calculate_calmar_ratio(total_return: float, max_drawdown: float) -> float:
     """
-    Calculate Calmar ratio (annual return / max drawdown).
+    Calculate Calmar ratio using consolidated utility.
     
     Args:
         total_return: Total annualized return
@@ -178,15 +144,13 @@ def calculate_calmar_ratio(total_return: float, max_drawdown: float) -> float:
     Returns:
         Calmar ratio
     """
-    if max_drawdown == 0:
-        return np.inf if total_return > 0 else 0.0
-    return abs(total_return / max_drawdown)
+    return calculate_calmar_ratio_optimized(total_return, max_drawdown)
 
 
 def calculate_information_ratio(portfolio_returns: pd.Series, 
                               benchmark_returns: pd.Series) -> float:
     """
-    Calculate Information Ratio.
+    Calculate Information Ratio using consolidated utility.
     
     Args:
         portfolio_returns: Portfolio return series
@@ -195,13 +159,9 @@ def calculate_information_ratio(portfolio_returns: pd.Series,
     Returns:
         Information ratio
     """
-    excess_returns = portfolio_returns - benchmark_returns
-    tracking_error = excess_returns.std()
-    
-    if tracking_error == 0:
-        return 0.0
-    
-    return excess_returns.mean() / tracking_error
+    # Convert to active returns for consolidated utility
+    active_returns = (portfolio_returns - benchmark_returns).values
+    return calculate_information_ratio_optimized(active_returns, 252)
 
 
 @jit(nopython=True)
