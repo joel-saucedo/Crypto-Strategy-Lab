@@ -1,29 +1,20 @@
-# True# Cor# Core algorithm parameters
-tr_lookback: 20                    # Lookback period for True Range moving average
-momentum_lookback: 14              # Lookback period for price momentum calculation
-divergence_threshold: 0.05         # Much lower threshold for divergence detection
-min_tr_strength: 0.5              # More lenient minimum TR relative strength
-max_tr_strength: 5.0              # Higher maximum TR relative strengthrithm parameters
-tr_lookback: 20                    # Lookback period for True Range moving average
-momentum_lookback: 14              # Lookback period for price momentum calculation
-divergence_threshold: 0.05         # Minimum divergence strength to trigger signals (reduced)
-min_tr_strength: 0.6              # Minimum TR relative strength for signal validity (reduced)
-max_tr_strength: 4.0              # Maximum TR relative strength (increased) Divergence Mean-Reversion Strategy Configuration
+# True Range Divergence Mean-Reversion Strategy Configuration
 # Strategy #12 from the 12 orthogonal trading edges compendium
 
-strategy_name: "true_range_divergence"
-description: "Mean-reversion strategy based on divergences between True Range volatility and price momentum"
+strategy:
+  name: "true_range_divergence"
+  description: "Mean-reversion strategy based on divergences between True Range volatility and price momentum"
+  parameters:
+    # Core algorithm parameters
+    tr_lookback: 20                    # Lookback period for True Range moving average
+    momentum_lookback: 14              # Lookback period for price momentum calculation
+    divergence_threshold: 0.05         # Much lower threshold for divergence detection
+    min_tr_strength: 0.5              # More lenient minimum TR relative strength
+    max_tr_strength: 5.0              # Higher maximum TR relative strength
 
-# Core algorithm parameters
-tr_lookback: 20                    # Lookback period for True Range moving average
-momentum_lookback: 14              # Lookback period for price momentum calculation
-divergence_threshold: 0.15         # Minimum divergence strength to trigger signals (reduced)
-min_tr_strength: 0.8              # Minimum TR relative strength for signal validity (reduced)
-max_tr_strength: 4.0              # Maximum TR relative strength (avoid extreme volatility)
-
-# Signal generation parameters
-entry_delay_days: 1                # Days to wait before entering position
-max_hold_days: 8                   # Maximum holding period for mean-reversion
+    # Signal generation parameters
+    entry_delay_days: 1                # Days to wait before entering position
+    max_hold_days: 8                   # Maximum holding period for mean-reversion
 signal_decay: 0.85                 # Signal decay factor per period
 max_signal_strength: 1.0           # Maximum absolute signal value
 

@@ -9,12 +9,13 @@ from pathlib import Path
 import sys
 import os
 import json
+import asyncio
 
 # Add parent directories to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.backtest_engine import (
-    UnifiedBacktestEngine, 
+    MultiStrategyOrchestrator as BacktestEngine, 
     BacktestConfig, 
     PositionSizingConfig,
     PositionSizingType
@@ -22,7 +23,7 @@ from core.backtest_engine import (
 from data.data_manager import DataManager
 from strategies.base_strategy import BaseStrategy
 
-def run_backtest(args):
+async def run_backtest(args):
     """
     Run a comprehensive backtest using the unified engine.
     """
@@ -64,7 +65,7 @@ def run_backtest(args):
         print()
         
         # Initialize unified engine
-        engine = UnifiedBacktestEngine(config)
+        engine = BacktestEngine()
         
         # Load strategy
         print(f"📈 Loading strategy: {args.strategy}")
@@ -91,7 +92,7 @@ def run_backtest(args):
         
         # Run backtest
         print("🔄 Running unified backtest with comprehensive validation...")
-        results = engine.run_backtest(data, validate=True)
+        results = await engine.run_backtest(config, data=data, validate=True)
         
         # Display results
         display_backtest_results(results, strategy_id)
@@ -101,7 +102,9 @@ def run_backtest(args):
             save_results(results, args.output)
         
         # Validation status
-        validation_passed = results.get('validation_passed', False)
+        validation_passed = False
+        if hasattr(results, 'validation_results') and results.validation_results:
+            validation_passed = results.validation_results.get('validation_passed', False)
         if validation_passed:
             print("✅ STRATEGY VALIDATION: PASSED")
             print("   Strategy meets all validation criteria including DSR ≥ 0.95")
@@ -204,45 +207,60 @@ def generate_sample_data(start_date: datetime, end_date: datetime) -> pd.DataFra
     
     return data
 
-def display_backtest_results(results: dict, strategy_id: str):
+def display_backtest_results(results, strategy_id: str):
     """Display comprehensive backtest results."""
-    metrics = results.get('portfolio_metrics', {})
-    validation = results.get('validation', {})
+    # Handle BacktestResult object
+    if hasattr(results, 'metrics'):
+        metrics = results.metrics
+    else:
+        metrics = results.get('portfolio_metrics', {})
+    
+    if hasattr(results, 'validation_results'):
+        validation = results.validation_results or {}
+    else:
+        validation = results.get('validation', {})
+    
+    if hasattr(results, 'trades'):
+        trades = results.trades
+    else:
+        trades = results.get('trades', [])
     
     print("📊 BACKTEST RESULTS")
     print("-" * 40)
     
     # Portfolio performance
     print(f"💰 Portfolio Performance:")
-    print(f"   Total Return: {metrics.get('total_return', 0):.2%}")
-    print(f"   Annualized Return: {metrics.get('annualized_return', 0):.2%}")
+    print(f"   Initial Capital: ${metrics.get('initial_portfolio_value', 0):,.2f}")
+    print(f"   Final Portfolio: ${metrics.get('final_portfolio_value', 0):,.2f}")
+    print(f"   Total Return: {metrics.get('total_return', 0):.2f}%")
+    print(f"   Annualized Return: {metrics.get('annualized_return', 0):.2f}%")
     print(f"   Sharpe Ratio: {metrics.get('sharpe_ratio', 0):.3f}")
     print(f"   Sortino Ratio: {metrics.get('sortino_ratio', 0):.3f}")
-    print(f"   Maximum Drawdown: {metrics.get('max_drawdown', 0):.2%}")
+    print(f"   Maximum Drawdown: {metrics.get('max_drawdown', 0):.2f}%")
     print(f"   Calmar Ratio: {metrics.get('calmar_ratio', 0):.3f}")
     print()
     
     # Trading statistics
-    trades = results.get('trades', [])
     if trades:
-        winning_trades = [t for t in trades if t['pnl'] > 0]
-        losing_trades = [t for t in trades if t['pnl'] <= 0]
+        winning_trades = [t for t in trades if hasattr(t, 'pnl') and t.pnl > 0]
+        losing_trades = [t for t in trades if hasattr(t, 'pnl') and t.pnl <= 0]
         
         print(f"📈 Trading Statistics:")
         print(f"   Total Trades: {len(trades)}")
         print(f"   Winning Trades: {len(winning_trades)}")
         print(f"   Losing Trades: {len(losing_trades)}")
-        print(f"   Win Rate: {len(winning_trades)/len(trades)*100:.1f}%")
+        if len(trades) > 0:
+            print(f"   Win Rate: {len(winning_trades)/len(trades)*100:.1f}%")
         
         if winning_trades:
-            avg_win = np.mean([t['pnl'] for t in winning_trades])
+            avg_win = np.mean([t.pnl for t in winning_trades])
             print(f"   Average Win: ${avg_win:.2f}")
         
         if losing_trades:
-            avg_loss = np.mean([t['pnl'] for t in losing_trades])
+            avg_loss = np.mean([t.pnl for t in losing_trades])
             print(f"   Average Loss: ${avg_loss:.2f}")
         
-        total_pnl = sum(t['pnl'] for t in trades)
+        total_pnl = sum(getattr(t, 'pnl', 0) for t in trades)
         print(f"   Total P&L: ${total_pnl:.2f}")
         print()
     
@@ -259,11 +277,12 @@ def display_backtest_results(results: dict, strategy_id: str):
         mc_results = validation.get('monte_carlo_simulation', {})
         if mc_results:
             print(f"   Monte Carlo Trials: {mc_results.get('n_simulations', 'N/A')}")
-            print(f"   Sharpe Percentile: {mc_results.get('percentile_ranks', {}).get('sharpe_percentile', 'N/A'):.1f}%")
-            print(f"   Return Percentile: {mc_results.get('percentile_ranks', {}).get('return_percentile', 'N/A'):.1f}%")
+            percentile_ranks = mc_results.get('percentile_ranks', {})
+            print(f"   Sharpe Percentile: {percentile_ranks.get('sharpe_percentile', 0):.1f}%")
+            print(f"   Return Percentile: {percentile_ranks.get('return_percentile', 0):.1f}%")
         
         # Overall validation
-        validation_passed = results.get('validation_passed', False)
+        validation_passed = validation.get('validation_passed', False)
         status = "✅ PASSED" if validation_passed else "❌ FAILED"
         print(f"   Overall Validation: {status}")
         print()

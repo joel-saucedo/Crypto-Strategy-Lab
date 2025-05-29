@@ -35,8 +35,8 @@ def run_paper_trading(args):
         signal.signal(signal.SIGINT, signal_handler)
         
         # Import and initialize components
-        from core.backtest_engine import UnifiedBacktestEngine, BacktestConfig
-        from execution.engine import ExecutionEngine
+        from core.backtest_engine import MultiStrategyOrchestrator as BacktestEngine
+        from core.backtest_engine import BacktestConfig
         
         # Configure paper trading
         config = BacktestConfig(
@@ -47,8 +47,10 @@ def run_paper_trading(args):
         )
         
         # Initialize engines
-        backtest_engine = UnifiedBacktestEngine(config)
-        execution_engine = ExecutionEngine(mode='paper')
+        backtest_engine = BacktestEngine(config)
+        
+        # For paper trading, we use the backtest engine in real-time mode
+        # In a full implementation, you'd also have execution engine integration
         
         # Load strategy
         print(f"📈 Loading strategy: {args.strategy}")
@@ -111,19 +113,34 @@ def run_paper_trading(args):
         return 1
 
 def load_strategy(strategy_name: str):
-    """Load a strategy by name (simplified version)."""
+    """Load a strategy by name."""
     try:
-        # This is a placeholder implementation
-        # In a real system, this would load the actual strategy
-        class MockStrategy:
-            def generate_signal(self, data):
-                return 0.0  # No signal
+        # First try to import signal.py (preferred pattern)
+        try:
+            strategy_module = __import__(f'strategies.{strategy_name}.signal', fromlist=[strategy_name])
+            # Look for strategy class (usually named like 'StrategyNameSignal')
+            class_name = ''.join(word.title() for word in strategy_name.split('_')) + 'Signal'
+            strategy_class = getattr(strategy_module, class_name)
+        except (ImportError, AttributeError):
+            # Fallback to strategy.py
+            strategy_module = __import__(f'strategies.{strategy_name}.strategy', fromlist=[strategy_name])
+            class_name = ''.join(word.title() for word in strategy_name.split('_')) + 'Strategy'
+            strategy_class = getattr(strategy_module, class_name)
         
-        print(f"   ⚠️  Using mock strategy for '{strategy_name}'")
-        print(f"   📝 Implement actual strategy loading in production")
+        print(f"   ✅ Loaded strategy: {class_name}")
+        return strategy_class()
         
-        return MockStrategy()
-        
-    except Exception as e:
+    except (ImportError, AttributeError) as e:
         print(f"❌ Failed to load strategy '{strategy_name}': {e}")
+        print("   Available strategies:")
+        
+        # List available strategies
+        from pathlib import Path
+        strategies_dir = Path('src/strategies')
+        if strategies_dir.exists():
+            available = [d.name for d in strategies_dir.iterdir() 
+                        if d.is_dir() and not d.name.startswith('_')]
+            for strategy in available:
+                print(f"     - {strategy}")
+        
         raise

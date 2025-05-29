@@ -3,6 +3,7 @@
 
 strategy:
   name: "vpin"
+  description: "Volume-Synchronized Order-Flow Imbalance strategy detecting toxic flow and market stress"
   type: "daily_vpin"
   enabled: true
   

@@ -11,7 +11,7 @@ from pathlib import Path
 # Add parent directories to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def run_validation(args):
+async def run_validation(args):
     """
     Validate configuration files and system setup.
     """
@@ -23,10 +23,17 @@ def run_validation(args):
         validation_passed = True
         
         # Validate specific config file if provided
-        if args.config:
+        if hasattr(args, 'config') and args.config:
             print(f"📄 Validating config file: {args.config}")
             file_valid = validate_config_file(args.config)
             validation_passed = validation_passed and file_valid
+            print()
+        
+        # Validate specific strategy if provided
+        if hasattr(args, 'strategy') and args.strategy:
+            print(f"📈 Validating strategy: {args.strategy}")
+            strategy_valid = validate_specific_strategy(args.strategy)
+            validation_passed = validation_passed and strategy_valid
             print()
         
         # Validate overall system configuration
@@ -41,8 +48,8 @@ def run_validation(args):
         validation_passed = validation_passed and data_valid
         print()
         
-        # Validate strategies
-        print("📈 Validating strategies...")
+        # Validate all strategies
+        print("📈 Validating all strategies...")
         strategies_valid = validate_strategies()
         validation_passed = validation_passed and strategies_valid
         print()
@@ -138,18 +145,29 @@ def validate_json_config(config_file: Path) -> bool:
 
 def validate_strategy_config(config: dict, config_file: Path) -> bool:
     """Validate strategy-specific configuration."""
-    required_fields = ['name', 'description', 'parameters']
+    # Check for strategy section
+    if 'strategy' not in config:
+        print(f"   ❌ Missing 'strategy' section in {config_file}")
+        return False
+    
+    strategy_section = config['strategy']
+    required_fields = ['name', 'description']
     missing_fields = []
     
     for field in required_fields:
-        if field not in config:
+        if field not in strategy_section:
             missing_fields.append(field)
+    
+    # Check for parameters (either in param_grid, best_params, or top-level parameters)
+    has_parameters = 'param_grid' in config or 'best_params' in config or 'parameters' in config
+    if not has_parameters:
+        missing_fields.append('parameters (param_grid, best_params, or parameters)')
     
     if missing_fields:
         print(f"   ❌ Missing required fields in {config_file}: {missing_fields}")
         return False
     
-    print(f"   ✅ Strategy config valid: {config.get('name', 'Unknown')}")
+    print(f"   ✅ Strategy config valid: {strategy_section.get('name', 'Unknown')}")
     return True
 
 def validate_system_config() -> bool:
@@ -259,7 +277,7 @@ def validate_strategies() -> bool:
         strategy_name = strategy_dir.name
         
         # Check for required files
-        required_files = ['__init__.py', 'strategy.py']
+        required_files = ['__init__.py', 'signal.py']
         strategy_valid = True
         
         for req_file in required_files:
@@ -297,7 +315,7 @@ def validate_dependencies() -> bool:
         'matplotlib',
         'seaborn',
         'scipy',
-        'scikit-learn'
+        'sklearn'
     ]
     
     print("   📦 Checking core dependencies:")
@@ -325,5 +343,76 @@ def validate_dependencies() -> bool:
             print(f"      ✅ {dep} ({purpose})")
         except ImportError:
             print(f"      ⚠️  {dep} not installed ({purpose})")
+    
+    return all_valid
+
+def validate_specific_strategy(strategy_name: str) -> bool:
+    """Validate a specific strategy implementation."""
+    all_valid = True
+    
+    strategies_dir = Path('src/strategies')
+    strategy_dir = strategies_dir / strategy_name
+    
+    if not strategy_dir.exists():
+        print(f"   ❌ Strategy directory not found: {strategy_name}")
+        return False
+    
+    print(f"   📂 Found strategy directory: {strategy_name}")
+    
+    # Check for required files
+    required_files = ['__init__.py', 'signal.py']
+    for req_file in required_files:
+        file_path = strategy_dir / req_file
+        if file_path.exists():
+            print(f"   ✅ {strategy_name}/{req_file}")
+        else:
+            print(f"   ❌ {strategy_name}/{req_file} missing")
+            all_valid = False
+    
+    # Check for config file
+    config_file = Path(f'config/strategies/{strategy_name}.yaml')
+    if config_file.exists():
+        print(f"   ✅ {strategy_name} config found")
+        
+        # Validate the config
+        if not validate_config_file(str(config_file)):
+            all_valid = False
+    else:
+        print(f"   ⚠️  {strategy_name} config missing")
+    
+    # Try to import the strategy
+    try:
+        import sys
+        import importlib
+        sys.path.append('src')
+        strategy_module = importlib.import_module(f'strategies.{strategy_name}.signal')
+        print(f"   ✅ Successfully imported {strategy_name}")
+        
+        # Check for signal class (try different naming conventions)
+        expected_class_names = [
+            f"{''.join(word.capitalize() for word in strategy_name.split('_'))}Signal",
+            f"{strategy_name.title().replace('_', '')}Signal",
+            f"{strategy_name.upper()}Signal",
+            "Signal"
+        ]
+        
+        found_class = None
+        for class_name in expected_class_names:
+            if hasattr(strategy_module, class_name):
+                found_class = class_name
+                break
+        
+        if found_class:
+            print(f"   ✅ Found signal class: {found_class}")
+        else:
+            print(f"   ⚠️  Signal class not found (tried: {expected_class_names})")
+            # Don't fail validation for missing class names - the module imported successfully
+            
+    except ImportError as e:
+        print(f"   ❌ Failed to import {strategy_name}: {e}")
+        all_valid = False
+    except Exception as e:
+        print(f"   ❌ Error validating {strategy_name}: {e}")
+        all_valid = False
     
     return all_valid

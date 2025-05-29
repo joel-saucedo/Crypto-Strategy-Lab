@@ -3,6 +3,7 @@
 
 strategy:
   name: "spectral_entropy"
+  description: "Spectral Entropy Collapse strategy detecting regime changes via entropy analysis"
   type: "spectral_entropy_collapse"
   enabled: true
   

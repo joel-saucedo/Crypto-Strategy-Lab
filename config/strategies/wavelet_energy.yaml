@@ -3,6 +3,7 @@
 
 strategy:
   name: "wavelet_energy"
+  description: "Wavelet Energy-Ratio Breakout strategy detecting breakouts via energy redistribution across scales"
   type: "wavelet_energy_breakout"
   enabled: true
   
