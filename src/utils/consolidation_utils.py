@@ -157,16 +157,16 @@ def calculate_information_ratio_optimized(excess_returns: np.ndarray,
 # COMPREHENSIVE METRICS CALCULATION
 # ============================================================================
 
-def calculate_comprehensive_metrics(returns: pd.Series, 
-                                  benchmark_returns: Optional[pd.Series] = None,
+def calculate_comprehensive_metrics(returns: Union[pd.Series, np.ndarray], 
+                                  benchmark_returns: Optional[Union[pd.Series, np.ndarray]] = None,
                                   risk_free_rate: float = 0.02,
                                   periods_per_year: int = 252) -> Dict[str, float]:
     """
     Calculate comprehensive performance metrics using optimized functions.
     
     Args:
-        returns: Return series
-        benchmark_returns: Optional benchmark returns
+        returns: Return series (pandas Series or numpy array)
+        benchmark_returns: Optional benchmark returns (pandas Series or numpy array)
         risk_free_rate: Risk-free rate (annualized)
         periods_per_year: Periods per year for annualization
         
