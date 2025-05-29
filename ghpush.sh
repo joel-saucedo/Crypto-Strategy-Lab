@@ -40,11 +40,11 @@ VALIDATION RESULTS:
 READY FOR PRODUCTION: Full CLI suite operational with comprehensive validation"
 
 # Show current changes
-echo "📋 Current changes:"
+echo "Current changes:"
 git status --short
 
 echo ""
-echo "🚀 Committing with message: $COMMIT_MESSAGE"
+echo "Committing with message: $COMMIT_MESSAGE"
 echo ""
 
 # Add, commit, and push
